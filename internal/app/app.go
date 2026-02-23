@@ -2,21 +2,56 @@ package app
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
+
+	_ "github.com/mattn/go-sqlite3"
+	database "github.com/relextm19/tracker.nvim/internal/db"
+	"github.com/relextm19/tracker.nvim/internal/session"
 )
 
 type App struct {
-	SecretVal int
-	DB        sql.DB
+	Store  *database.Store
+	Logger slog.Logger
 }
 
-func NewApp() *App {
+func NewApp(dbPath *string) *App {
 	a := &App{}
-	a.SecretVal = 67
+
+	a.Logger = *slog.Default()
+
+	db, err := sql.Open("sqlite3", *dbPath)
+	if err != nil {
+		panic(err)
+	}
+	a.Store = database.NewStore(db)
+
 	return a
 }
 
-func (a *App) HandleHome(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(a.SecretVal)
+var ErrSessionInvalid = fmt.Errorf("invalid session")
+
+func (a *App) HandleSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			a.Logger.Error(err.Error())
+			return
+		}
+
+		session := session.NewSession()
+		json.Unmarshal(body, session)
+		if err := session.IsValid(); err != nil {
+			a.Logger.Error(err.Error())
+			return
+		}
+
+		if err = a.Store.InsertSession(session); err != nil {
+			a.Logger.Error(err.Error())
+			return
+		}
+	}
 }

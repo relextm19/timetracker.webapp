@@ -1,13 +1,19 @@
 package main
 
 import (
+	"flag"
 	"net/http"
 
 	"github.com/relextm19/tracker.nvim/internal/app"
 )
 
 func main() {
-	app := app.NewApp()
-	http.HandleFunc("/", app.HandleHome)
-	http.ListenAndServe(":2137", nil)
+	dbPath := flag.String("db path", "./db/database.db", "path to the db file")
+	flag.Parse()
+
+	app := app.NewApp(dbPath)
+	defer app.Store.DB.Close()
+
+	http.HandleFunc("/sessions", app.HandleSession)
+	app.Logger.Info(http.ListenAndServe(":42069", nil).Error())
 }
