@@ -19,18 +19,25 @@ func NewSession() *Session {
 	return &Session{}
 }
 
+func validStringField(s string) bool {
+	return strings.TrimSpace(s) == ""
+}
+
 func (s *Session) IsValid() error {
-	if strings.TrimSpace(s.StartDate) == "" {
+	if validStringField(s.StartDate) {
 		return errors.New("startDate is required")
 	}
-	if strings.TrimSpace(s.EndDate) == "" {
+	if validStringField(s.EndDate) {
 		return errors.New("endDate is required")
 	}
-	if strings.TrimSpace(s.ProjectName) == "" {
+	if validStringField(s.ProjectName) {
 		return errors.New("projectName is required")
 	}
-	if strings.TrimSpace(s.FileName) == "" {
+	if validStringField(s.FileName) {
 		return errors.New("fileName is required")
+	}
+	if validStringField(s.LanguageName) {
+		return errors.New("languageName is required")
 	}
 
 	if s.StartTime == 0 {

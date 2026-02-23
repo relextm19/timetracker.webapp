@@ -42,9 +42,10 @@ func (a *App) HandleSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		fmt.Println(string(body))
 		session := session.NewSession()
 		json.Unmarshal(body, session)
-		if err := session.IsValid(); err != nil {
+		if err = session.IsValid(); err != nil {
 			a.Logger.Error(err.Error())
 			return
 		}
@@ -53,5 +54,7 @@ func (a *App) HandleSession(w http.ResponseWriter, r *http.Request) {
 			a.Logger.Error(err.Error())
 			return
 		}
+
+		w.WriteHeader(http.StatusCreated)
 	}
 }
