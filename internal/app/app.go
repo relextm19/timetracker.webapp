@@ -10,7 +10,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	database "github.com/relextm19/tracker.nvim/internal/db"
-	"github.com/relextm19/tracker.nvim/internal/session"
+	sessions "github.com/relextm19/tracker.nvim/internal/sessions"
 )
 
 type App struct {
@@ -43,7 +43,7 @@ func (a *App) HandleSession(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fmt.Println(string(body))
-		session := session.NewSession()
+		session := sessions.NewSession()
 		json.Unmarshal(body, session)
 		if err = session.IsValid(); err != nil {
 			a.Logger.Error(err.Error())
@@ -57,4 +57,7 @@ func (a *App) HandleSession(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusCreated)
 	}
+}
+
+func (a *App) HandleRegister(w http.ResponseWriter, r *http.Request) {
 }

@@ -3,7 +3,8 @@ package database
 import (
 	"database/sql"
 
-	"github.com/relextm19/tracker.nvim/internal/session"
+	sessions "github.com/relextm19/tracker.nvim/internal/sessions"
+	"github.com/relextm19/tracker.nvim/internal/users"
 )
 
 type Store struct {
@@ -16,7 +17,7 @@ func NewStore(db *sql.DB) *Store {
 	}
 }
 
-func (store *Store) InsertSession(s *session.Session) error {
+func (store *Store) InsertSession(s *sessions.Session) error {
 	query := `
 		INSERT INTO Sessions (FileName, ProjectName, LanguageName, StartTime, StartDate, EndTime, EndDate) 
 		VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -30,6 +31,21 @@ func (store *Store) InsertSession(s *session.Session) error {
 		s.StartDate,
 		s.EndTime,
 		s.EndDate,
+	)
+
+	return err
+}
+
+func (store *Store) InsertUser(u *users.User) error {
+	query := `
+		INSERT INTO Users (Email, PasswordHash, Token) 
+		VALUES (?, ?, ?)
+	`
+
+	_, err := store.DB.Exec(query,
+		u.Email,
+		u.PasswordHash,
+		u.Token,
 	)
 
 	return err
