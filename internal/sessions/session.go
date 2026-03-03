@@ -2,7 +2,8 @@ package session
 
 import (
 	"errors"
-	"strings"
+
+	"github.com/relextm19/tracker.nvim/internal/helpers"
 )
 
 type Session struct {
@@ -19,24 +20,20 @@ func NewSession() *Session {
 	return &Session{}
 }
 
-func validStringField(s string) bool {
-	return strings.TrimSpace(s) == ""
-}
-
-func (s *Session) IsValid() error {
-	if validStringField(s.StartDate) {
+func (s *Session) Valid() error {
+	if helpers.ValidStringField(s.StartDate) {
 		return errors.New("startDate is required")
 	}
-	if validStringField(s.EndDate) {
+	if helpers.ValidStringField(s.EndDate) {
 		return errors.New("endDate is required")
 	}
-	if validStringField(s.ProjectName) {
+	if helpers.ValidStringField(s.ProjectName) {
 		return errors.New("projectName is required")
 	}
-	if validStringField(s.FileName) {
+	if helpers.ValidStringField(s.FileName) {
 		return errors.New("fileName is required")
 	}
-	if validStringField(s.LanguageName) {
+	if helpers.ValidStringField(s.LanguageName) {
 		return errors.New("languageName is required")
 	}
 

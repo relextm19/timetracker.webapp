@@ -14,6 +14,7 @@ func main() {
 	app := app.NewApp(dbPath)
 	defer app.Store.DB.Close()
 
-	http.HandleFunc("/sessions", app.HandleSession)
+	http.HandleFunc("/sessions", app.SessionHandler)
+	http.HandleFunc("/users", app.RegisterHandler)
 	app.Logger.Info(http.ListenAndServe(":42069", nil).Error())
 }
