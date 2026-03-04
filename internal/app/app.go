@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	database "github.com/relextm19/tracker.nvim/internal/db"
 	sessions "github.com/relextm19/tracker.nvim/internal/sessions"
@@ -117,4 +118,10 @@ func (a *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Token uuid.UUID `json:"token"`
+	}{
+		Token: user.Token,
+	})
 }
