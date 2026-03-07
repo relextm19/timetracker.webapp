@@ -24,7 +24,7 @@ type User struct {
 }
 
 func NewUser(cub *ClientUserBody) (*User, error) {
-	ph, err := HashPassword(cub.Password)
+	ph, err := GetPasswordHash(cub.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -35,21 +35,17 @@ func NewUser(cub *ClientUserBody) (*User, error) {
 	}, nil
 }
 
-func (u *User) Valid() error {
-	if ok := helpers.ValidStringField(u.Email); !ok {
+func (cub *ClientUserBody) Valid() error {
+	if ok := helpers.ValidStringField(cub.Email); !ok {
 		return helpers.ErrEmptyField
 	}
 
-	if _, err := mail.ParseAddress(u.Email); err != nil {
+	if _, err := mail.ParseAddress(cub.Email); err != nil {
 		return errors.New("invalid email format")
 	}
 
-	if ok := helpers.ValidStringField(u.PasswordHash); !ok {
+	if ok := helpers.ValidStringField(cub.Password); !ok {
 		return helpers.ErrEmptyField
-	}
-
-	if u.Token == uuid.Nil {
-		return errors.New("invalid user token")
 	}
 
 	return nil

@@ -13,8 +13,12 @@ func main() {
 
 	app := app.NewApp(dbPath)
 	defer app.Store.DB.Close()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/login", app.LoginHandler)
+	mux.HandleFunc("/register", app.RegisterHandler)
+	mux.HandleFunc("/session", app.SessionHandler)
 
-	http.HandleFunc("/sessions", app.SessionHandler)
-	http.HandleFunc("/users", app.RegisterHandler)
-	app.Logger.Info(http.ListenAndServe(":42069", nil).Error())
+	loggedMux := app.LoggingMiddleware(mux)
+
+	http.ListenAndServe(":42069", loggedMux)
 }
