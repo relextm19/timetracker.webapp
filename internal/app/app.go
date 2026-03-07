@@ -3,10 +3,12 @@ package app
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,6 +51,13 @@ func (a *App) respondWithError(w http.ResponseWriter, code int, msg string) {
 	http.Error(w, msg, code)
 }
 
+func GetAuthToken(h http.Header) (string, error) {
+	if after, ok := strings.CutPrefix(h.Get("Authorization"), "Bearer"); ok {
+		return strings.TrimSpace(after), nil
+	}
+	return "", errors.New("token not present")
+}
+
 func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		a.respondWithError(w, http.StatusMethodNotAllowed, RespMethodNotAllowed)
@@ -56,14 +65,16 @@ func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: move this to the middleware
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
+	token, err := GetAuthToken(r.Header)
+	if err != nil {
+		a.Logger.Error("auth token missing")
 		a.respondWithError(w, http.StatusUnauthorized, "Auth token missing")
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		a.Logger.Error("failed to read request body", "error", err)
 		a.respondWithError(w, http.StatusBadRequest, RespBadRequest)
 		return
 	}
@@ -72,16 +83,19 @@ func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(body, session)
 	if err != nil {
+		a.Logger.Error("failed to unmarshal session", "error", err)
 		a.respondWithError(w, http.StatusBadRequest, RespInvalidJSON)
 		return
 	}
 
 	if err = session.Valid(); err != nil {
+		a.Logger.Error("invalid session", "error", err)
 		a.respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if err = a.Store.InsertSession(session, authHeader); err != nil {
+	if err = a.Store.InsertSession(session, token); err != nil {
+		a.Logger.Error("failed to insert session", "error", err)
 		a.respondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
 	}
@@ -97,6 +111,7 @@ func (a *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		a.Logger.Error("failed to read request body", "error", err)
 		a.respondWithError(w, http.StatusBadRequest, RespBadRequest)
 		return
 	}
@@ -104,22 +119,26 @@ func (a *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	cub := users.NewClientUserBody()
 	err = json.Unmarshal(body, cub)
 	if err != nil {
+		a.Logger.Error("failed to unmarshal user", "error", err)
 		a.respondWithError(w, http.StatusBadRequest, RespInvalidJSON)
 		return
 	}
 
 	if err = cub.Valid(); err != nil {
+		a.Logger.Error("invalid user", "error", err)
 		a.respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	user, err := users.NewUser(cub)
 	if err != nil {
+		a.Logger.Error("failed to create user", "error", err)
 		a.respondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
 	}
 
 	if err = a.Store.InsertUser(user); err != nil {
+		a.Logger.Error("failed to insert user", "error", err)
 		a.respondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
 	}
@@ -142,6 +161,7 @@ func (a *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		a.Logger.Error("failed to read request body", "error", err)
 		a.respondWithError(w, http.StatusBadRequest, RespBadRequest)
 		return
 	}
@@ -149,22 +169,26 @@ func (a *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	cub := users.NewClientUserBody()
 	err = json.Unmarshal(body, cub)
 	if err != nil {
+		a.Logger.Error("failed to unmarshal user", "error", err)
 		a.respondWithError(w, http.StatusBadRequest, RespInvalidJSON)
 		return
 	}
 
 	if err = cub.Valid(); err != nil {
+		a.Logger.Error("invalid user", "error", err)
 		a.respondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if ok := a.Store.CheckLoginAttempt(cub); !ok {
+		a.Logger.Error("login attempt failed", "email", cub.Email)
 		a.respondWithError(w, http.StatusUnauthorized, RespUnauthorized)
 		return
 	}
 
 	token, err := a.Store.GetUserToken(cub.Email)
 	if err != nil {
+		a.Logger.Error("failed to get user token", "error", err)
 		a.respondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
 	}
@@ -177,6 +201,7 @@ func (a *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}{
 		Token: token,
 	})
+	a.Logger.Info("Everything fine")
 }
 
 func (a *App) LoggingMiddleware(next http.Handler) http.Handler {

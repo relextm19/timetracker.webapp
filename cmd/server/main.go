@@ -18,7 +18,7 @@ func main() {
 	mux.HandleFunc("/register", app.RegisterHandler)
 	mux.HandleFunc("/session", app.SessionHandler)
 
-	loggedMux := app.LoggingMiddleware(mux)
+	// loggedMux := app.LoggingMiddleware(mux)
 
-	http.ListenAndServe(":42069", loggedMux)
+	http.ListenAndServe(":42069", mux)
 }

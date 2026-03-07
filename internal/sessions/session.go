@@ -21,19 +21,19 @@ func NewSession() *Session {
 }
 
 func (s *Session) Valid() error {
-	if helpers.ValidStringField(s.StartDate) {
+	if !helpers.ValidStringField(s.StartDate) {
 		return errors.New("startDate is required")
 	}
-	if helpers.ValidStringField(s.EndDate) {
+	if !helpers.ValidStringField(s.EndDate) {
 		return errors.New("endDate is required")
 	}
-	if helpers.ValidStringField(s.ProjectName) {
+	if !helpers.ValidStringField(s.ProjectName) {
 		return errors.New("projectName is required")
 	}
-	if helpers.ValidStringField(s.FileName) {
+	if !helpers.ValidStringField(s.FileName) {
 		return errors.New("fileName is required")
 	}
-	if helpers.ValidStringField(s.LanguageName) {
+	if !helpers.ValidStringField(s.LanguageName) {
 		return errors.New("languageName is required")
 	}
 
