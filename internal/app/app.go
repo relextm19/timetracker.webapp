@@ -55,6 +55,13 @@ func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: move this to the middleware
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		a.respondWithError(w, http.StatusUnauthorized, "Auth token missing")
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		a.respondWithError(w, http.StatusBadRequest, RespBadRequest)
@@ -74,7 +81,7 @@ func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = a.Store.InsertSession(session); err != nil {
+	if err = a.Store.InsertSession(session, authHeader); err != nil {
 		a.respondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
 	}

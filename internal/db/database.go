@@ -19,13 +19,15 @@ func NewStore(db *sql.DB) *Store {
 	}
 }
 
-func (s *Store) InsertSession(ses *sessions.Session) error {
+// InsertSession no point in making a new uuid from the header token so just pas it as string
+func (s *Store) InsertSession(ses *sessions.Session, token string) error {
 	query := `
-		INSERT INTO Sessions (FileName, ProjectName, LanguageName, StartTime, StartDate, EndTime, EndDate) 
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO Sessions (UserToken, FileName, ProjectName, LanguageName, StartTime, StartDate, EndTime, EndDate)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := s.DB.Exec(query,
+		token,
 		ses.FileName,
 		ses.ProjectName,
 		ses.LanguageName,
