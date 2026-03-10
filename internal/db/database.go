@@ -2,6 +2,8 @@ package database
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	sessions "github.com/relextm19/tracker.nvim/internal/sessions"
@@ -11,6 +13,17 @@ import (
 
 type Store struct {
 	DB *sql.DB
+}
+
+type AggregatedTime struct {
+	Name      string `json:"name"`
+	TotalTime int    `json:"totalTime"` // Time in seconds
+}
+
+type DashboardData struct {
+	ByLanguage []AggregatedTime `json:"byLanguage"`
+	ByProject  []AggregatedTime `json:"byProject"`
+	ByFile     []AggregatedTime `json:"byFile"`
 }
 
 func NewStore(db *sql.DB) *Store {
@@ -76,4 +89,63 @@ func (s *Store) GetUserToken(email string) (uuid.UUID, error) {
 	}
 
 	return token, nil
+}
+
+func (s *Store) fetchAggregatedData(column, token string) ([]AggregatedTime, error) {
+	// the Sprintf call for db is fine cuz we only have 3 options so the db can still cache the query and shi
+	query := fmt.Sprintf(`
+			SELECT 
+				%s, 
+				SUM(EndTime - StartTime) as TotalTime 
+			FROM Sessions 
+			WHERE UserToken = ? 
+			GROUP BY %s 
+			ORDER BY TotalTime DESC;
+		`, column, column)
+
+	rows, err := s.DB.Query(query, token)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []AggregatedTime
+	for rows.Next() {
+		var item AggregatedTime
+		if err := rows.Scan(&item.Name, &item.TotalTime); err != nil {
+			return nil, err
+		}
+		results = append(results, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+var ErrAggregatingData = errors.New("error aggregating data")
+
+func (s *Store) GetDataForToken(token string) (*DashboardData, error) {
+	data := &DashboardData{}
+
+	var err error
+
+	data.ByLanguage, err = s.fetchAggregatedData("LanguageName", token)
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	data.ByProject, err = s.fetchAggregatedData("ProjectName", token)
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	data.ByFile, err = s.fetchAggregatedData("FileName", token)
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	return data, nil
 }

@@ -51,7 +51,7 @@ func (a *App) respondWithError(w http.ResponseWriter, code int, msg string) {
 	http.Error(w, msg, code)
 }
 
-func GetAuthToken(h http.Header) (string, error) {
+func GetAuthTokenFromHeader(h http.Header) (string, error) {
 	if after, ok := strings.CutPrefix(h.Get("Authorization"), "Bearer"); ok {
 		return strings.TrimSpace(after), nil
 	}
@@ -59,13 +59,19 @@ func GetAuthToken(h http.Header) (string, error) {
 }
 
 func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	switch r.Method {
+	case http.MethodPost:
+		a.CreateSession(w, r)
+	case http.MethodGet:
+		a.GetUserData(w, r)
+	default:
 		a.respondWithError(w, http.StatusMethodNotAllowed, RespMethodNotAllowed)
-		return
 	}
+}
 
+func (a *App) CreateSession(w http.ResponseWriter, r *http.Request) {
 	// TODO: move this to the middleware
-	token, err := GetAuthToken(r.Header)
+	token, err := GetAuthTokenFromHeader(r.Header)
 	if err != nil {
 		a.Logger.Error("auth token missing")
 		a.respondWithError(w, http.StatusUnauthorized, "Auth token missing")
@@ -78,6 +84,7 @@ func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
 		a.respondWithError(w, http.StatusBadRequest, RespBadRequest)
 		return
 	}
+	defer r.Body.Close()
 
 	session := sessions.NewSession()
 
@@ -101,6 +108,26 @@ func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (a *App) GetUserData(w http.ResponseWriter, r *http.Request) {
+	token, err := GetAuthTokenFromHeader(r.Header)
+	if err != nil {
+		a.Logger.Error("auth token not present", "error", err)
+		a.respondWithError(w, http.StatusUnauthorized, RespUnauthorized)
+		return
+	}
+
+	data, err := a.Store.GetDataForToken(token)
+	if err != nil {
+		a.Logger.Error("failed to get data for token", "error", err)
+		a.respondWithError(w, http.StatusInternalServerError, RespInternalError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(data)
 }
 
 func (a *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -188,20 +215,18 @@ func (a *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	token, err := a.Store.GetUserToken(cub.Email)
 	if err != nil {
-		a.Logger.Error("failed to get user token", "error", err)
+		a.Logger.Error("failed to fetch user token", "error", err)
 		a.respondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
 	json.NewEncoder(w).Encode(struct {
 		Token uuid.UUID `json:"token"`
 	}{
 		Token: token,
 	})
-	a.Logger.Info("Everything fine")
 }
 
 func (a *App) LoggingMiddleware(next http.Handler) http.Handler {
