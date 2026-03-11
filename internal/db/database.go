@@ -24,10 +24,7 @@ type DashboardData struct {
 	ByLanguage []AggregatedTime `json:"byLanguage"`
 	ByProject  []AggregatedTime `json:"byProject"`
 	ByFile     []AggregatedTime `json:"byFile"`
-	ByDay      int              `json:"byDay"`
-	ByWeek     int              `json:"byWeek"`
-	ByMonth    int              `json:"byMonth"`
-	ByYear     int              `json:"byYear"`
+	ByTime     []AggregatedTime `json:"byTime"`
 }
 
 func NewStore(db *sql.DB) *Store {
@@ -134,29 +131,33 @@ type TimePeriod struct {
 	Modifier string
 }
 
-var (
-	PeriodDay   = TimePeriod{Name: "day", Modifier: "start of day"}
-	PeriodWeek  = TimePeriod{Name: "week", Modifier: "-7 days"}
-	PeriodMonth = TimePeriod{Name: "month", Modifier: "-1 month"}
-	PeriodYear  = TimePeriod{Name: "year", Modifier: "-1 year"}
-)
+func (s *Store) fetchTimeAggregatedData(token string) ([]AggregatedTime, error) {
+	// the filter here is optimal it doesnt fetch new rows for each call it operates on already fetched ones
+	query := `
+		SELECT 
+			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', 'start of day')), 0),
+			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-7 days')), 0),
+			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-1 month')), 0),
+			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-1 year')), 0)
+		FROM Sessions 
+		WHERE UserToken = ?;
+	`
 
-func (s *Store) fetchTimeAggregatedData(timePeriod TimePeriod, token string) (int, error) {
-	query := fmt.Sprintf(`
-			SELECT 
-			COALESCE(SUM(EndTime - StartTime), 0) as TotalTime 
-			FROM Sessions 
-			WHERE UserToken = ? 
-			AND StartDate >= date('now', '%s');
-		`, timePeriod.Modifier)
+	var day, week, month, year int
 
-	result := 0
-	err := s.DB.QueryRow(query, token).Scan(&result)
+	err := s.DB.QueryRow(query, token).Scan(&day, &week, &month, &year)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return result, nil
+	results := []AggregatedTime{
+		{Name: "day", TotalTime: day},
+		{Name: "week", TotalTime: week},
+		{Name: "month", TotalTime: month},
+		{Name: "year", TotalTime: year},
+	}
+
+	return results, nil
 }
 
 var ErrAggregatingData = errors.New("error aggregating data")
@@ -181,25 +182,9 @@ func (s *Store) GetDataForToken(token string) (*DashboardData, error) {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByDay, err = s.fetchTimeAggregatedData(PeriodDay, token)
+	data.ByTime, err = s.fetchTimeAggregatedData(token)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
-
-	data.ByWeek, err = s.fetchTimeAggregatedData(PeriodWeek, token)
-	if err != nil {
-		return nil, errors.Join(ErrAggregatingData, err)
-	}
-
-	data.ByMonth, err = s.fetchTimeAggregatedData(PeriodMonth, token)
-	if err != nil {
-		return nil, errors.Join(ErrAggregatingData, err)
-	}
-
-	data.ByYear, err = s.fetchTimeAggregatedData(PeriodYear, token)
-	if err != nil {
-		return nil, errors.Join(ErrAggregatingData, err)
-	}
-
 	return data, nil
 }
