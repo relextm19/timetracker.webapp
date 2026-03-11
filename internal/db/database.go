@@ -24,6 +24,10 @@ type DashboardData struct {
 	ByLanguage []AggregatedTime `json:"byLanguage"`
 	ByProject  []AggregatedTime `json:"byProject"`
 	ByFile     []AggregatedTime `json:"byFile"`
+	ByDay      int              `json:"byDay"`
+	ByWeek     int              `json:"byWeek"`
+	ByMonth    int              `json:"byMonth"`
+	ByYear     int              `json:"byYear"`
 }
 
 func NewStore(db *sql.DB) *Store {
@@ -91,7 +95,7 @@ func (s *Store) GetUserToken(email string) (uuid.UUID, error) {
 	return token, nil
 }
 
-func (s *Store) fetchAggregatedData(column, token string) ([]AggregatedTime, error) {
+func (s *Store) fetchCategoryAggragatedData(column, token string) ([]AggregatedTime, error) {
 	// the Sprintf call for db is fine cuz we only have 3 options so the db can still cache the query and shi
 	query := fmt.Sprintf(`
 			SELECT 
@@ -125,6 +129,36 @@ func (s *Store) fetchAggregatedData(column, token string) ([]AggregatedTime, err
 	return results, nil
 }
 
+type TimePeriod struct {
+	Name     string
+	Modifier string
+}
+
+var (
+	PeriodDay   = TimePeriod{Name: "day", Modifier: "start of day"}
+	PeriodWeek  = TimePeriod{Name: "week", Modifier: "-7 days"}
+	PeriodMonth = TimePeriod{Name: "month", Modifier: "-1 month"}
+	PeriodYear  = TimePeriod{Name: "year", Modifier: "-1 year"}
+)
+
+func (s *Store) fetchTimeAggregatedData(timePeriod TimePeriod, token string) (int, error) {
+	query := fmt.Sprintf(`
+			SELECT 
+			COALESCE(SUM(EndTime - StartTime), 0) as TotalTime 
+			FROM Sessions 
+			WHERE UserToken = ? 
+			AND StartDate >= date('now', '%s');
+		`, timePeriod.Modifier)
+
+	result := 0
+	err := s.DB.QueryRow(query, token).Scan(&result)
+	if err != nil {
+		return 0, err
+	}
+
+	return result, nil
+}
+
 var ErrAggregatingData = errors.New("error aggregating data")
 
 func (s *Store) GetDataForToken(token string) (*DashboardData, error) {
@@ -132,17 +166,37 @@ func (s *Store) GetDataForToken(token string) (*DashboardData, error) {
 
 	var err error
 
-	data.ByLanguage, err = s.fetchAggregatedData("LanguageName", token)
+	data.ByLanguage, err = s.fetchCategoryAggragatedData("LanguageName", token)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByProject, err = s.fetchAggregatedData("ProjectName", token)
+	data.ByProject, err = s.fetchCategoryAggragatedData("ProjectName", token)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByFile, err = s.fetchAggregatedData("FileName", token)
+	data.ByFile, err = s.fetchCategoryAggragatedData("FileName", token)
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	data.ByDay, err = s.fetchTimeAggregatedData(PeriodDay, token)
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	data.ByWeek, err = s.fetchTimeAggregatedData(PeriodWeek, token)
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	data.ByMonth, err = s.fetchTimeAggregatedData(PeriodMonth, token)
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	data.ByYear, err = s.fetchTimeAggregatedData(PeriodYear, token)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
