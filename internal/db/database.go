@@ -83,6 +83,7 @@ func (s *Store) CheckLoginAttempt(cub *users.ClientUserBody) bool {
 
 func (s *Store) GetUserToken(email string) (uuid.UUID, error) {
 	var token uuid.UUID
+
 	query := `SELECT Token FROM Users WHERE Email = ?`
 	err := s.DB.QueryRow(query, email).Scan(&token)
 	if err != nil {
@@ -90,6 +91,19 @@ func (s *Store) GetUserToken(email string) (uuid.UUID, error) {
 	}
 
 	return token, nil
+}
+
+func (s *Store) CheckTokenValid(token string) (bool, error) {
+	var valid bool
+
+	query := `SELECT EXISTS(SELECT 1 FROM Users WHERE Token = ?)`
+
+	err := s.DB.QueryRow(query, token).Scan(&valid)
+	if err != nil {
+		return false, err
+	}
+
+	return valid, nil
 }
 
 func (s *Store) fetchCategoryAggragatedData(column, token string) ([]AggregatedTime, error) {
@@ -132,7 +146,6 @@ type TimePeriod struct {
 }
 
 func (s *Store) fetchTimeAggregatedData(token string) ([]AggregatedTime, error) {
-	// the filter here is optimal it doesnt fetch new rows for each call it operates on already fetched ones
 	query := `
 		SELECT 
 			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', 'start of day')), 0),

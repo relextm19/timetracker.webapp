@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"log"
 	"net/http"
 
 	"github.com/relextm19/tracker.nvim/internal/app"
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -16,9 +18,17 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/login", app.LoginHandler)
 	mux.HandleFunc("/register", app.RegisterHandler)
-	mux.HandleFunc("/session", app.SessionHandler)
+	mux.HandleFunc("/sessions", app.SessionHandler)
 
-	// loggedMux := app.LoggingMiddleware(mux)
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodDelete},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+		Debug:            true,
+	})
 
-	http.ListenAndServe(":42069", mux)
+	handler := app.AuthMiddleware(c.Handler(mux))
+
+	log.Panic(http.ListenAndServe(":42069", handler))
 }
