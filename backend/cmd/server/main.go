@@ -19,16 +19,18 @@ func main() {
 	mux.HandleFunc("/login", app.LoginHandler)
 	mux.HandleFunc("/register", app.RegisterHandler)
 	mux.HandleFunc("/sessions", app.SessionHandler)
+	// if someone gets through the AuthMiddleware they are authenticated so just leave the func empty
+	mux.HandleFunc("/checkAuth", func(w http.ResponseWriter, r *http.Request) {})
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodDelete},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
-		Debug:            true,
+		Debug:            false,
 	})
 
-	handler := app.AuthMiddleware(c.Handler(mux))
+	handler := c.Handler(app.AuthMiddleware(mux))
 
 	log.Panic(http.ListenAndServe(":42069", handler))
 }

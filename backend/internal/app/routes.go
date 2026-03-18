@@ -25,6 +25,19 @@ func (a *App) RespondWithError(w http.ResponseWriter, code int, msg string) {
 	http.Error(w, msg, code)
 }
 
+func setAuthCookie(w http.ResponseWriter, token string) {
+	cookie := http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &cookie)
+}
+
 func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
@@ -127,6 +140,7 @@ func (a *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	setAuthCookie(w, user.Token.String())
 	w.WriteHeader(http.StatusCreated)
 
 	json.NewEncoder(w).Encode(struct {
@@ -177,7 +191,9 @@ func (a *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	setAuthCookie(w, token.String())
 	w.WriteHeader(http.StatusOK)
+
 	json.NewEncoder(w).Encode(struct {
 		Token uuid.UUID `json:"token"`
 	}{
