@@ -12,27 +12,36 @@ type APIKey struct {
 	KeyHash string `json:"keyHash"`
 }
 
-type ClientAPIKey struct {
+type RequestAPIKey struct {
 	Name string `json:"name"`
 	Key  string `json:"key"`
 }
 
-func NewClientAPIKey() *ClientAPIKey {
-	return &ClientAPIKey{}
+type ResponseAPIKey struct {
+	Name      string `json:"name"`
+	CreatedAt int    `json:"createdAt"`
 }
 
-func (cak *ClientAPIKey) Valid() error {
-	if !helpers.ValidStringField(cak.Name) {
+func NewResponseAPIKey() *ResponseAPIKey {
+	return &ResponseAPIKey{}
+}
+
+func NewRequestAPIKey() *RequestAPIKey {
+	return &RequestAPIKey{}
+}
+
+func (rak *RequestAPIKey) Valid() error {
+	if !helpers.ValidStringField(rak.Name) {
 		return errors.New("api key name is required")
 	}
-	if !helpers.ValidStringField(cak.Key) {
+	if !helpers.ValidStringField(rak.Key) {
 		return errors.New("api key is required")
 	}
 
 	return nil
 }
 
-func NewAPIKey(cak *ClientAPIKey) (*APIKey, error) {
+func NewAPIKey(cak *RequestAPIKey) (*APIKey, error) {
 	keyHash, err := users.GetHash(cak.Key)
 	if err != nil {
 		return nil, err

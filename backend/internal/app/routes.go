@@ -124,21 +124,21 @@ func (a *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cub := users.NewClientUserBody()
-	err = json.Unmarshal(body, cub)
+	rub := users.NewRequestUserBody()
+	err = json.Unmarshal(body, rub)
 	if err != nil {
 		a.Logger.Error("failed to unmarshal user", "error", err)
 		a.RespondWithError(w, http.StatusBadRequest, RespInvalidJSON)
 		return
 	}
 
-	if err = cub.Valid(); err != nil {
+	if err = rub.Valid(); err != nil {
 		a.Logger.Error("invalid user", "error", err)
 		a.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	user, err := users.NewUser(cub)
+	user, err := users.NewUser(rub)
 	if err != nil {
 		a.Logger.Error("failed to create user", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
@@ -175,27 +175,27 @@ func (a *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cub := users.NewClientUserBody()
-	err = json.Unmarshal(body, cub)
+	rub := users.NewRequestUserBody()
+	err = json.Unmarshal(body, rub)
 	if err != nil {
 		a.Logger.Error("failed to unmarshal user", "error", err)
 		a.RespondWithError(w, http.StatusBadRequest, RespInvalidJSON)
 		return
 	}
 
-	if err = cub.Valid(); err != nil {
+	if err = rub.Valid(); err != nil {
 		a.Logger.Error("invalid user", "error", err)
 		a.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if ok := a.Store.CheckLoginAttempt(cub); !ok {
-		a.Logger.Error("login attempt failed", "email", cub.Email)
+	if ok := a.Store.CheckLoginAttempt(rub); !ok {
+		a.Logger.Error("login attempt failed", "email", rub.Email)
 		a.RespondWithError(w, http.StatusUnauthorized, RespUnauthorized)
 		return
 	}
 
-	token, err := a.Store.GetUserToken(cub.Email)
+	token, err := a.Store.GetUserToken(rub.Email)
 	if err != nil {
 		a.Logger.Error("failed to fetch user token", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
@@ -221,23 +221,22 @@ func (a *App) AddAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: add a check for a valid cak
-	cak := apikeys.NewClientAPIKey()
-	err = json.Unmarshal(body, cak)
+	rak := apikeys.NewRequestAPIKey()
+	err = json.Unmarshal(body, rak)
 	if err != nil {
 		a.Logger.Error("failed to unmarshal api key", "error", err)
 		a.RespondWithError(w, http.StatusBadRequest, RespInvalidJSON)
 		return
 	}
 
-	err = cak.Valid()
+	err = rak.Valid()
 	if err != nil {
 		a.Logger.Error("invalid client api key", "error", err)
 		a.RespondWithError(w, http.StatusBadRequest, RespBadRequest)
 		return
 	}
 
-	ak, err := apikeys.NewAPIKey(cak)
+	ak, err := apikeys.NewAPIKey(rak)
 	if err != nil {
 		a.Logger.Error("failed to create api key", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
@@ -285,7 +284,18 @@ func (a *App) DeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (a *App) GetAPIKey(w http.ResponseWriter, r *http.Request) {
+func (a *App) GetAPIKeys(w http.ResponseWriter, r *http.Request) {
+	token := getTokenFromContext(r)
+	keys, err := a.Store.GetAPIKeys(token)
+	if err != nil {
+		a.Logger.Error("failed to fetch api keys", "error", err)
+		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(keys)
 }
 
 func (a *App) ApiKeysHandler(w http.ResponseWriter, r *http.Request) {
@@ -293,7 +303,7 @@ func (a *App) ApiKeysHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		a.AddAPIKey(w, r)
 	case http.MethodGet:
-		a.GetAPIKey(w, r)
+		a.GetAPIKeys(w, r)
 	default:
 		a.RespondWithError(w, http.StatusMethodNotAllowed, RespMethodNotAllowed)
 	}

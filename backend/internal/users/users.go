@@ -8,13 +8,13 @@ import (
 	"github.com/relextm19/tracker.nvim/internal/helpers"
 )
 
-type ClientUserBody struct {
+type RequestUserBody struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-func NewClientUserBody() *ClientUserBody {
-	return &ClientUserBody{}
+func NewRequestUserBody() *RequestUserBody {
+	return &RequestUserBody{}
 }
 
 type User struct {
@@ -23,7 +23,7 @@ type User struct {
 	Token        uuid.UUID
 }
 
-func NewUser(cub *ClientUserBody) (*User, error) {
+func NewUser(cub *RequestUserBody) (*User, error) {
 	ph, err := GetHash(cub.Password)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func NewUser(cub *ClientUserBody) (*User, error) {
 	}, nil
 }
 
-func (cub *ClientUserBody) Valid() error {
+func (cub *RequestUserBody) Valid() error {
 	if ok := helpers.ValidStringField(cub.Email); !ok {
 		return helpers.ErrEmptyField
 	}

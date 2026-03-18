@@ -70,7 +70,7 @@ func (s *Store) InsertUser(u *users.User) error {
 	return err
 }
 
-func (s *Store) CheckLoginAttempt(cub *users.ClientUserBody) bool {
+func (s *Store) CheckLoginAttempt(cub *users.RequestUserBody) bool {
 	query := `SELECT PasswordHash FROM Users WHERE Email = ?`
 	var storedHash string
 	err := s.DB.QueryRow(query, cub.Email).Scan(&storedHash)
@@ -206,6 +206,7 @@ func (s *Store) GetSessionDataForToken(token string) (*DashboardData, error) {
 var ErrNoRowsAffected = errors.New("no rows affected")
 
 func (s *Store) InsertAPIKey(token string, ak *apikeys.APIKey) error {
+	// FIXME: The db unique doesnt prevent multiple of the same api key cuz of the salt or sth of a hash
 	query := `
         INSERT INTO ApiKeys (UserID, Name, KeyHash)
         SELECT ID, ?, ? FROM Users WHERE Token = ?
@@ -242,4 +243,29 @@ func (s *Store) DeleteAPIKey(id, token string) error {
 	}
 
 	return nil
+}
+
+func (s *Store) GetAPIKeys(token string) ([]*apikeys.ResponseAPIKey, error) {
+	query := `SELECT Name, CreatedAt FROM ApiKeys WHERE UserID = (SELECT ID FROM Users WHERE token = ?)`
+	res := []*apikeys.ResponseAPIKey{}
+
+	rows, err := s.DB.Query(query, token)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		rak := apikeys.NewResponseAPIKey()
+		if err := rows.Scan(&rak.Name, &rak.CreatedAt); err != nil {
+			return nil, err
+		}
+		res = append(res, rak)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
