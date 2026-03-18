@@ -9,6 +9,7 @@ const routes = [
     { path: '/register', component: Register, meta: { public: true } },
     { path: '/', component: Home },
     { path: '/dashboard', component: Dashboard },
+    { path: '/api_keys', component: Dashboard },
 ];
 
 const router = createRouter({
@@ -19,7 +20,6 @@ const router = createRouter({
 let loggedIn = false;// cache the value so i dont have to hit /api/checkAuth every request. This is not a security issue cause i still have an auth middleware on the backend so if someone plays arround with the client side the app still wont let them acces data
 
 router.beforeEach(async (to, _, next) => {
-    console.log(loggedIn)
     if (to.meta.public) {
         if (loggedIn) return next('/');
         return next();
@@ -31,7 +31,6 @@ router.beforeEach(async (to, _, next) => {
         console.log(res)
         if (res.ok) {
             loggedIn = true;
-            console.log(loggedIn)
             next();
         } else next('/login');
     } catch {
