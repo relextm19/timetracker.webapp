@@ -1,6 +1,9 @@
 package apikeys
 
 import (
+	"errors"
+
+	"github.com/relextm19/tracker.nvim/internal/helpers"
 	"github.com/relextm19/tracker.nvim/internal/users"
 )
 
@@ -16,6 +19,17 @@ type ClientAPIKey struct {
 
 func NewClientAPIKey() *ClientAPIKey {
 	return &ClientAPIKey{}
+}
+
+func (cak *ClientAPIKey) Valid() error {
+	if !helpers.ValidStringField(cak.Name) {
+		return errors.New("api key name is required")
+	}
+	if !helpers.ValidStringField(cak.Key) {
+		return errors.New("api key is required")
+	}
+
+	return nil
 }
 
 func NewAPIKey(cak *ClientAPIKey) (*APIKey, error) {

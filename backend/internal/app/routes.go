@@ -230,6 +230,13 @@ func (a *App) AddAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = cak.Valid()
+	if err != nil {
+		a.Logger.Error("invalid client api key", "error", err)
+		a.RespondWithError(w, http.StatusBadRequest, RespBadRequest)
+		return
+	}
+
 	ak, err := apikeys.NewAPIKey(cak)
 	if err != nil {
 		a.Logger.Error("failed to create api key", "error", err)
