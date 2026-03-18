@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	apikeys "github.com/relextm19/tracker.nvim/internal/apiKeys"
 	sessions "github.com/relextm19/tracker.nvim/internal/sessions"
 	"github.com/relextm19/tracker.nvim/internal/users"
 	"golang.org/x/crypto/bcrypt"
@@ -175,7 +176,7 @@ func (s *Store) fetchTimeAggregatedData(token string) ([]AggregatedTime, error) 
 
 var ErrAggregatingData = errors.New("error aggregating data")
 
-func (s *Store) GetDataForToken(token string) (*DashboardData, error) {
+func (s *Store) GetSessionDataForToken(token string) (*DashboardData, error) {
 	data := &DashboardData{}
 
 	var err error
@@ -200,4 +201,45 @@ func (s *Store) GetDataForToken(token string) (*DashboardData, error) {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 	return data, nil
+}
+
+var ErrNoRowsAffected = errors.New("no rows affected")
+
+func (s *Store) InsertAPIKey(token string, ak *apikeys.APIKey) error {
+	query := `
+        INSERT INTO ApiKeys (UserID, Name, KeyHash)
+        SELECT ID, ?, ? FROM Users WHERE Token = ?
+    `
+
+	res, err := s.DB.Exec(query, ak.Name, ak.KeyHash, token)
+	if err != nil {
+		return err
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rows == 0 {
+		return ErrNoRowsAffected
+	}
+
+	return nil
+}
+
+func (s *Store) DeleteAPIKey(id, token string) error {
+	query := `DELETE FROM ApiKeys WHERE ID = ? AND UserID = (SELECT ID FROM Users WHERE Token = ?)`
+
+	res, err := s.DB.Exec(query, id, token)
+	if err != nil {
+		return err
+	}
+
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return ErrNoRowsAffected
+	}
+
+	return nil
 }
