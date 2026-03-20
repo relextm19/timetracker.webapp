@@ -13,12 +13,12 @@
 </template>
 
 <script setup lang="ts">
-import { formatTime } from '@/utils/formatTime';
+import { formatToTimeOfDay } from '@/utils/formatTime';
 
 const props = defineProps<{
     name: string
     time: number
 }>()
 
-const [hours, minutes, seconds] = formatTime(props.time)
+const [hours, minutes, seconds] = formatToTimeOfDay(props.time)
 </script>

@@ -20,6 +20,7 @@ type RequestAPIKey struct {
 type ResponseAPIKey struct {
 	Name      string `json:"name"`
 	CreatedAt int    `json:"createdAt"`
+	KeyHash   string `json:"keyHash"`
 }
 
 func NewResponseAPIKey() *ResponseAPIKey {

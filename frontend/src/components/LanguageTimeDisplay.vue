@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatTime } from '@/utils/formatTime';
+import { formatToTimeOfDay } from '@/utils/formatTime';
 
 const props = defineProps<{
     name: string
@@ -18,5 +18,5 @@ const props = defineProps<{
 
 const iconUrl = `https://skillicons.dev/icons?i=${props.name.toLowerCase()}`;
 
-const [hours, minutes, seconds] = formatTime(props.time);
+const [hours, minutes, seconds] = formatToTimeOfDay(props.time);
 </script>
