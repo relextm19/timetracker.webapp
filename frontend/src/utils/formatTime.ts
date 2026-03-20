@@ -11,12 +11,11 @@ export function formatToDate(time: number): string {
     //js takes in time in miliseconds but backend returns in seconds
     const jsTime = new Date(time * 1000);
 
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat('en-EU', {
         year: 'numeric',
         month: 'short',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
-        timeZoneName: 'short'
     }).format(jsTime);
 }
