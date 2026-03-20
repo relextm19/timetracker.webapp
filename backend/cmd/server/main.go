@@ -19,7 +19,7 @@ func main() {
 	mux.HandleFunc("/login", app.LoginHandler)
 	mux.HandleFunc("/register", app.RegisterHandler)
 	mux.HandleFunc("/sessions", app.SessionHandler)
-	mux.HandleFunc("/api_keys", app.ApiKeysHandler)
+	mux.HandleFunc("/api_keys", app.APIKeysHandler)
 	mux.HandleFunc("DELETE /api_keys/{id}", app.DeleteAPIKey)
 	// if someone gets through the AuthMiddleware they are authenticated so just leave the func empty
 	mux.HandleFunc("/checkAuth", func(w http.ResponseWriter, r *http.Request) {})

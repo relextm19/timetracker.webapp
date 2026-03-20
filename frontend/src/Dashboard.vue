@@ -1,10 +1,15 @@
 <template>
     <TotalTimeDisplay :totalTime="totalTime" />
     <DisplaySwitch v-model:showLanguages="showLanguages" />
-    <div v-if="currentlyShown.length > 0">
+    <div v-if="hasData">
         <div v-for="entry in currentlyShown" :key="entry.name">
             <component :is="showLanguages ? LanguageTimeDisplay : ProjectTimeDisplay" v-bind="getProps(entry)" />
         </div>
+    </div>
+    <div v-else class="w-full text-center ">
+        <span class="text-2xl">
+            No data yet
+        </span>
     </div>
 </template>
 
@@ -22,13 +27,17 @@ interface timeData {
 
 const projects = ref<timeData[]>([])
 const languages = ref<timeData[]>([])
+const hasData = ref(true);
 
 onMounted(async () => {
     const response = await fetch('/api/sessions')
     const json = await response.json()
+    if (!(json.byLanguage && json.byProject && json.byTime)) {
+        hasData.value = false;
+        return
+    }
     projects.value = json.byProject
     languages.value = json.byLanguage
-    console.log(languages.value)
 })
 
 const showLanguages = ref(true)

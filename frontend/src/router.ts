@@ -1,15 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Login from './Login.vue';
-import Home from './Home.vue';
 import Register from './Register.vue';
 import Dashboard from './Dashboard.vue';
+import ApiKeys from './ApiKeys.vue';
 
 const routes = [
     { path: '/login', component: Login, meta: { public: true } },
     { path: '/register', component: Register, meta: { public: true } },
-    { path: '/', component: Home },
-    { path: '/dashboard', component: Dashboard },
-    { path: '/api_keys', component: Dashboard },
+    { path: '/', component: Dashboard },
+    { path: '/api_keys', component: ApiKeys },
 ];
 
 const router = createRouter({
@@ -28,7 +27,6 @@ router.beforeEach(async (to, _, next) => {
 
     try {
         const res = await fetch('/api/checkAuth', { credentials: 'include' });
-        console.log(res)
         if (res.ok) {
             loggedIn = true;
             next();

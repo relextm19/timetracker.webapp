@@ -7,8 +7,7 @@
 
             <nav class="flex gap-6">
                 <MenuElement to="/api_keys" text="Api keys" />
-                <MenuElement to="/dashboard" text="Dashboard" />
-                <MenuElement to="/" text="Home" />
+                <MenuElement to="/" text="Dashboard" />
             </nav>
         </div>
     </header>

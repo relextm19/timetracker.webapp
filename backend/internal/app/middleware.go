@@ -9,7 +9,7 @@ import (
 
 var publicPaths = []string{"/login", "/register"}
 
-// since we have both browser and other clients making request we have to check for both cookies and headers
+// GetAuthTokenFromRequest since we have both browser and other clients making request we have to check for both cookies and headers
 func GetAuthTokenFromRequest(r *http.Request) string {
 	h := r.Header
 	if after, ok := strings.CutPrefix(h.Get("Authorization"), "Bearer"); ok {

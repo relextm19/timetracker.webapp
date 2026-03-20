@@ -247,7 +247,7 @@ func (a *App) AddAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	err = a.Store.InsertAPIKey(token, ak)
 	if err != nil {
-		if errors.Is(database.ErrNoRowsAffected, err) {
+		if errors.Is(err, database.ErrNoRowsAffected) {
 			a.Logger.Warn("failed insert api key", "error", err)
 			a.RespondWithError(w, http.StatusNotFound, RespBadRequest)
 			return
@@ -271,7 +271,7 @@ func (a *App) DeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	token := getTokenFromContext(r)
 	err := a.Store.DeleteAPIKey(keyID, token)
 	if err != nil {
-		if errors.Is(database.ErrNoRowsAffected, err) {
+		if errors.Is(err, database.ErrNoRowsAffected) {
 			a.Logger.Warn("failed to delete api key", "error", err)
 			a.RespondWithError(w, http.StatusNotFound, RespBadRequest)
 			return
@@ -298,7 +298,7 @@ func (a *App) GetAPIKeys(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(keys)
 }
 
-func (a *App) ApiKeysHandler(w http.ResponseWriter, r *http.Request) {
+func (a *App) APIKeysHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		a.AddAPIKey(w, r)
