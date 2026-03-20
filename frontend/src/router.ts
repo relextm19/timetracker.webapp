@@ -8,7 +8,7 @@ const routes = [
     { path: '/login', component: Login, meta: { public: true } },
     { path: '/register', component: Register, meta: { public: true } },
     { path: '/', component: Dashboard },
-    { path: '/api_keys', component: ApiKeys },
+    { path: '/keys', component: ApiKeys },
 ];
 
 const router = createRouter({

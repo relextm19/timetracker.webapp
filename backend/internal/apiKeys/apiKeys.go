@@ -18,6 +18,7 @@ type RequestAPIKey struct {
 }
 
 type ResponseAPIKey struct {
+	ID        int    `json:"id"`
 	Name      string `json:"name"`
 	CreatedAt int    `json:"createdAt"`
 	KeyHash   string `json:"keyHash"`

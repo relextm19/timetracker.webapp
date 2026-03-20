@@ -246,7 +246,7 @@ func (s *Store) DeleteAPIKey(id, token string) error {
 }
 
 func (s *Store) GetAPIKeys(token string) ([]*apikeys.ResponseAPIKey, error) {
-	query := `SELECT Name, CreatedAt, KeyHash FROM ApiKeys WHERE UserID = (SELECT ID FROM Users WHERE token = ?)`
+	query := `SELECT ID, Name, CreatedAt, KeyHash FROM ApiKeys WHERE UserID = (SELECT ID FROM Users WHERE token = ?)`
 	res := []*apikeys.ResponseAPIKey{}
 
 	rows, err := s.DB.Query(query, token)
@@ -257,7 +257,7 @@ func (s *Store) GetAPIKeys(token string) ([]*apikeys.ResponseAPIKey, error) {
 
 	for rows.Next() {
 		rak := apikeys.NewResponseAPIKey()
-		if err := rows.Scan(&rak.Name, &rak.CreatedAt, &rak.KeyHash); err != nil {
+		if err := rows.Scan(&rak.ID, &rak.Name, &rak.CreatedAt, &rak.KeyHash); err != nil {
 			return nil, err
 		}
 		res = append(res, rak)

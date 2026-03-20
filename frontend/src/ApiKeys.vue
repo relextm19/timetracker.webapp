@@ -7,7 +7,7 @@
     </div>
     <div v-else class="space-y-4">
         <div v-for="(key, index) in APIKeys" :key="index" class="border-b border-gray-700">
-            <div class="flex">
+            <div class="flex p-2">
                 <div class="text-white flex-4/5">
                     <div class="mb-2">
                         <span class="text-gray-400 text-sm">Name:</span>
@@ -22,7 +22,8 @@
                         <span class="ml-2">{{ formatToDate(key.createdAt) }}</span>
                     </div>
                 </div>
-                <button class="text-gray-400 transition-colors rounded-md hover:text-red-500 hover:bg-red-50"
+                <button @click="() => deleteKey(key.id)"
+                    class="text-gray-400 transition-colors rounded-md hover:text-red-500 hover:bg-red-50"
                     aria-label="Delete API Key">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                         stroke="currentColor" class="w-5 h-5">
@@ -40,6 +41,7 @@ import { onMounted, ref } from 'vue'
 import { formatToDate } from './utils/formatTime';
 
 type APIKey = {
+    id: number
     name: string
     createdAt: number
     keyHash: string
@@ -48,8 +50,16 @@ type APIKey = {
 const APIKeys = ref<APIKey[]>([]);
 
 onMounted(async () => {
-    const res = await fetch('/api/api_keys');
+    const res = await fetch('/api/keys');
     const json = await res.json() as APIKey[];
+    console.log(json)
     APIKeys.value.push(...json)
 })
+
+const deleteKey = async (id: number): Promise<void> => {
+    await fetch('/api/keys/' + id, {
+        method: "DELETE"
+    });
+    APIKeys.value = APIKeys.value.filter(k => k.id !== id)
+}
 </script>
