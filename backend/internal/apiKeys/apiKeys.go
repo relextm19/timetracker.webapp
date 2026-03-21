@@ -34,7 +34,7 @@ func (rak *RequestAPIKey) Valid() error {
 // NewAPIKey Only fills out values know at the time of the function call you have to fill out the rest after querying the db
 func NewAPIKey(cak *RequestAPIKey) (*APIKey, error) {
 	key := uuid.New().String()
-	keyHash, err := helpers.GetHash([]byte(key))
+	keyHash, err := helpers.GetHashFromUUID([]byte(key))
 	if err != nil {
 		return nil, err
 	}
