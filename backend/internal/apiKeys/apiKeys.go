@@ -3,6 +3,7 @@ package apikeys
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/relextm19/tracker.nvim/internal/helpers"
 )
 
@@ -15,10 +16,7 @@ type APIKey struct {
 	Name      string `json:"name"`
 	CreatedAt int    `json:"createdAt"`
 	KeyHash   string `json:"keyHash"`
-}
-
-func NewResponseAPIKey() *APIKey {
-	return &APIKey{}
+	Key       string `json:"key"`
 }
 
 func NewRequestAPIKey() *RequestAPIKey {
@@ -33,9 +31,10 @@ func (rak *RequestAPIKey) Valid() error {
 	return nil
 }
 
-// Only fills out values know at the time of the function call you have to fill out the rest after querying the db
+// NewAPIKey Only fills out values know at the time of the function call you have to fill out the rest after querying the db
 func NewAPIKey(cak *RequestAPIKey) (*APIKey, error) {
-	keyHash, err := helpers.GetHash()
+	key := uuid.New().String()
+	keyHash, err := helpers.GetHash([]byte(key))
 	if err != nil {
 		return nil, err
 	}
@@ -43,5 +42,6 @@ func NewAPIKey(cak *RequestAPIKey) (*APIKey, error) {
 	return &APIKey{
 		Name:    cak.Name,
 		KeyHash: keyHash,
+		Key:     key,
 	}, nil
 }

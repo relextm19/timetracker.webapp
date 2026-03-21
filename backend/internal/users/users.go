@@ -24,7 +24,7 @@ type User struct {
 }
 
 func NewUser(cub *RequestUserBody) (*User, error) {
-	ph, err := helpers.GetHashFromString(cub.Password)
+	ph, err := helpers.GetHash([]byte(cub.Password))
 	if err != nil {
 		return nil, err
 	}

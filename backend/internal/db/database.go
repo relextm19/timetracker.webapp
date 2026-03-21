@@ -255,9 +255,9 @@ func (s *Store) DeleteAPIKey(id, token string) error {
 	return nil
 }
 
-func (s *Store) GetAPIKeys(token string) ([]*apikeys.APIKey, error) {
+func (s *Store) GetAPIKeys(token string) ([]apikeys.APIKey, error) {
 	query := `SELECT ID, Name, CreatedAt, KeyHash FROM ApiKeys WHERE UserID = (SELECT ID FROM Users WHERE token = ?)`
-	res := []*apikeys.APIKey{}
+	res := []apikeys.APIKey{}
 
 	rows, err := s.DB.Query(query, token)
 	if err != nil {
@@ -266,11 +266,12 @@ func (s *Store) GetAPIKeys(token string) ([]*apikeys.APIKey, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		rak := apikeys.NewResponseAPIKey()
-		if err := rows.Scan(&rak.ID, &rak.Name, &rak.CreatedAt, &rak.KeyHash); err != nil {
+		// TODO: find a better way to do ts
+		ak := apikeys.APIKey{}
+		if err := rows.Scan(&ak.ID, &ak.Name, &ak.CreatedAt, &ak.KeyHash); err != nil {
 			return nil, err
 		}
-		res = append(res, rak)
+		res = append(res, ak)
 	}
 
 	if err := rows.Err(); err != nil {

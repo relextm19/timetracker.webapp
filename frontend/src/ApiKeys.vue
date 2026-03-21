@@ -1,6 +1,6 @@
 <template>
-    <div v-if="showModal"
-        class="absolute top-1/2 left-1/2 -translate-1/2 flex justify-center items-center flex-col border-2 border-white rounded-lg gap-4 p-4 z-50">
+    <div v-if="showNewKeyModal"
+        class="absolute top-1/2 left-1/2 -translate-1/2 flex justify-center items-center flex-col border-2 border-white rounded-lg gap-4 p-4 z-50 bg-black">
         <h2 class="text-2xl tracking-wider">Add API key</h2>
         <form @submit.prevent="addKey" class="flex justify-center items-center flex-col gap-4">
             <input v-model="newKeyName" type="text"
@@ -11,11 +11,32 @@
                 type="submit" value="Add">
         </form>
     </div>
-    <div :class="{ 'blur-xs': showModal }">
+    <div v-if="showKeyModal"
+        class="absolute top-1/2 left-1/2 -translate-1/2 flex justify-center items-center flex-col border-2 border-white rounded-lg gap-4 p-4 z-50 bg-black">
+        <h2 class="text-2xl tracking-wider">Your API key</h2>
+        <div>
+            <span>{{ newKeyValue }}</span>
+            <button @click="copyToClipboard(newKeyValue)"
+                class="p-2 text-gray-400 transition-colors rounded-md hover:text-blue-500 hover:bg-blue-50"
+                aria-label="Copy API Key">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                    stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5-1.5H13.5a3.75 3.75 0 0 1 3.75 3.75v6.75a9.06 9.06 0 0 1-1.5 1.5Zm0 0c.342 0 .684.048 1.012.144.405.118.784.329 1.11.616l2.122 2.122c.287.287.498.666.616 1.071m-9.444-11.444L15 9.75M21 12v4.5A2.25 2.25 0 0 1 18.75 18.75h-4.5" />
+                </svg>
+            </button>
+        </div>
+        <span class="text-red-600">This is your only chance to save the key!</span>
+        <button @click="showKeyModal = !showKeyModal"
+            class="bg-black p-1 w-full text-white border border-white rounded-xs hover:bg-white hover:text-black transition duration-200 cursor-pointer focus:outline-0 focus:ring-1 focus:ring-white">
+            Close
+        </button>
+    </div>
+    <div :class="{ 'blur-xs': showNewKeyModal || showKeyModal }">
         <p class="text-3xl font-semibold uppercase tracking-wider mb-6 text-center text-white">
             API keys
         </p>
-        <button @click="() => { showModal = !showModal; console.log(showModal) }"
+        <button @click="() => { showNewKeyModal = !showNewKeyModal; console.log(showNewKeyModal) }"
             class="p-2 text-gray-400 transition-colors rounded-md hover:text-green-600 flex justify-start items-center gap-2"
             aria-label="Add API Key">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
@@ -68,15 +89,18 @@ type APIKey = {
     name: string
     createdAt: number
     keyHash: string
+    key: string
 }
 
-const showModal = ref(true)
+const showNewKeyModal = ref(false)
+const showKeyModal = ref(false)
 
 const APIKeys = ref<APIKey[]>([]);
 
 onMounted(async () => {
     const res = await fetch('/api/keys');
     const json = await res.json() as APIKey[];
+    console.log(json)
     APIKeys.value.push(...json)
 })
 
@@ -88,6 +112,7 @@ const deleteKey = async (id: number): Promise<void> => {
 }
 
 const newKeyName = ref("")
+const newKeyValue = ref("")
 
 const addKey = async () => {
     if (!newKeyName.value) return;
@@ -107,10 +132,20 @@ const addKey = async () => {
             const json = await res.json() as APIKey
             APIKeys.value.push(json)
             newKeyName.value = '';
-            showModal.value = false;
+            showNewKeyModal.value = false;
+            showKeyModal.value = true;
+            newKeyValue.value = json.key;
         }
     } catch (error) {
         console.error("Failed to add key:", error);
     }
 }
+
+const copyToClipboard = async (text: string) => {
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch (err) {
+        console.error("Failed to copy!", err);
+    }
+};
 </script>
