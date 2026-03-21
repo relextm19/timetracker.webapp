@@ -16,7 +16,7 @@ type APIKey struct {
 	Name      string `json:"name"`
 	CreatedAt int    `json:"createdAt"`
 	KeyHash   string `json:"keyHash"`
-	Key       string `json:"key"`
+	Key       string `json:"key,omitempty"`
 }
 
 func NewRequestAPIKey() *RequestAPIKey {

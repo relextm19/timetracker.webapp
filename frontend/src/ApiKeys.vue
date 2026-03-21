@@ -14,16 +14,29 @@
     <div v-if="showKeyModal"
         class="absolute top-1/2 left-1/2 -translate-1/2 flex justify-center items-center flex-col border-2 border-white rounded-lg gap-4 p-4 z-50 bg-black">
         <h2 class="text-2xl tracking-wider">Your API key</h2>
-        <div>
+        <div class="flex justify-center items-center">
             <span>{{ newKeyValue }}</span>
             <button @click="copyToClipboard(newKeyValue)"
-                class="p-2 text-gray-400 transition-colors rounded-md hover:text-blue-500 hover:bg-blue-50"
+                class="relative w-9 h-9 text-gray-400 transition-colors rounded-md hover:text-blue-500 hover:bg-blue-50/10 overflow-hidden"
                 aria-label="Copy API Key">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                    stroke="currentColor" class="w-5 h-5">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5-1.5H13.5a3.75 3.75 0 0 1 3.75 3.75v6.75a9.06 9.06 0 0 1-1.5 1.5Zm0 0c.342 0 .684.048 1.012.144.405.118.784.329 1.11.616l2.122 2.122c.287.287.498.666.616 1.071m-9.444-11.444L15 9.75M21 12v4.5A2.25 2.25 0 0 1 18.75 18.75h-4.5" />
-                </svg>
+
+                <span class="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-in-out"
+                    :class="copied ? 'opacity-0 scale-50 rotate-90' : 'opacity-100 scale-100 rotate-0'">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5-1.5H13.5a3.75 3.75 0 0 1 3.75 3.75v6.75a9.06 9.06 0 0 1-1.5 1.5Zm0 0c.342 0 .684.048 1.012.144.405.118.784.329 1.11.616l2.122 2.122c.287.287.498.666.616 1.071m-9.444-11.444L15 9.75M21 12v4.5A2.25 2.25 0 0 1 18.75 18.75h-4.5" />
+                    </svg>
+                </span>
+
+                <span
+                    class="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-in-out text-green-500"
+                    :class="copied ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-90'">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                        stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                </span>
             </button>
         </div>
         <span class="text-red-600">This is your only chance to save the key!</span>
@@ -141,9 +154,11 @@ const addKey = async () => {
     }
 }
 
+const copied = ref(false)
 const copyToClipboard = async (text: string) => {
     try {
         await navigator.clipboard.writeText(text);
+        copied.value = true;
     } catch (err) {
         console.error("Failed to copy!", err);
     }

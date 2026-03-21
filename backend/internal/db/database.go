@@ -266,7 +266,6 @@ func (s *Store) GetAPIKeys(token string) ([]apikeys.APIKey, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		// TODO: find a better way to do ts
 		ak := apikeys.APIKey{}
 		if err := rows.Scan(&ak.ID, &ak.Name, &ak.CreatedAt, &ak.KeyHash); err != nil {
 			return nil, err

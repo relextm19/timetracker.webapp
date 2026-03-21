@@ -213,6 +213,7 @@ func (a *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// FIXME: For some reason this is slow as fuck
 func (a *App) AddAPIKey(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
