@@ -205,7 +205,7 @@ func (s *Store) GetSessionDataForToken(token string) (*DashboardData, error) {
 
 var ErrNoRowsAffected = errors.New("no rows affected")
 
-func (s *Store) InsertAPIKey(token string, ak *apikeys.APIKey) error {
+func (s *Store) InsertAPIKey(token string, ak *apikeys.APIKey) (int, int, error) {
 	// FIXME: The db unique doesnt prevent multiple of the same api key cuz of the salt or sth of a hash
 	query := `
         INSERT INTO ApiKeys (UserID, Name, KeyHash)
@@ -214,19 +214,29 @@ func (s *Store) InsertAPIKey(token string, ak *apikeys.APIKey) error {
 
 	res, err := s.DB.Exec(query, ak.Name, ak.KeyHash, token)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 
 	rows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 
 	if rows == 0 {
-		return ErrNoRowsAffected
+		return 0, 0, ErrNoRowsAffected
 	}
 
-	return nil
+	newID, err := res.LastInsertId()
+	if err != nil {
+		return 0, 0, err
+	}
+	createdAt := 0
+	err = s.DB.QueryRow("SELECT CreatedAt FROM ApiKeys WHERE ID = ?", newID).Scan(&createdAt)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return int(newID), createdAt, nil
 }
 
 func (s *Store) DeleteAPIKey(id, token string) error {
@@ -245,9 +255,9 @@ func (s *Store) DeleteAPIKey(id, token string) error {
 	return nil
 }
 
-func (s *Store) GetAPIKeys(token string) ([]*apikeys.ResponseAPIKey, error) {
+func (s *Store) GetAPIKeys(token string) ([]*apikeys.APIKey, error) {
 	query := `SELECT ID, Name, CreatedAt, KeyHash FROM ApiKeys WHERE UserID = (SELECT ID FROM Users WHERE token = ?)`
-	res := []*apikeys.ResponseAPIKey{}
+	res := []*apikeys.APIKey{}
 
 	rows, err := s.DB.Query(query, token)
 	if err != nil {

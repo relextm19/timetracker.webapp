@@ -245,7 +245,7 @@ func (a *App) AddAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	token := getTokenFromContext(r)
 
-	err = a.Store.InsertAPIKey(token, ak)
+	id, createdAt, err := a.Store.InsertAPIKey(token, ak)
 	if err != nil {
 		if errors.Is(err, database.ErrNoRowsAffected) {
 			a.Logger.Warn("failed insert api key", "error", err)
@@ -256,8 +256,11 @@ func (a *App) AddAPIKey(w http.ResponseWriter, r *http.Request) {
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
 	}
+	ak.ID = id
+	ak.CreatedAt = createdAt
 
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(ak)
 }
 
 func (a *App) DeleteAPIKey(w http.ResponseWriter, r *http.Request) {

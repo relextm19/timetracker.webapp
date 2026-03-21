@@ -4,28 +4,21 @@ import (
 	"errors"
 
 	"github.com/relextm19/tracker.nvim/internal/helpers"
-	"github.com/relextm19/tracker.nvim/internal/users"
 )
-
-type APIKey struct {
-	Name    string `json:"name"`
-	KeyHash string `json:"keyHash"`
-}
 
 type RequestAPIKey struct {
 	Name string `json:"name"`
-	Key  string `json:"key"`
 }
 
-type ResponseAPIKey struct {
+type APIKey struct {
 	ID        int    `json:"id"`
 	Name      string `json:"name"`
 	CreatedAt int    `json:"createdAt"`
 	KeyHash   string `json:"keyHash"`
 }
 
-func NewResponseAPIKey() *ResponseAPIKey {
-	return &ResponseAPIKey{}
+func NewResponseAPIKey() *APIKey {
+	return &APIKey{}
 }
 
 func NewRequestAPIKey() *RequestAPIKey {
@@ -36,15 +29,13 @@ func (rak *RequestAPIKey) Valid() error {
 	if !helpers.ValidStringField(rak.Name) {
 		return errors.New("api key name is required")
 	}
-	if !helpers.ValidStringField(rak.Key) {
-		return errors.New("api key is required")
-	}
 
 	return nil
 }
 
+// Only fills out values know at the time of the function call you have to fill out the rest after querying the db
 func NewAPIKey(cak *RequestAPIKey) (*APIKey, error) {
-	keyHash, err := users.GetHash(cak.Key)
+	keyHash, err := helpers.GetHash()
 	if err != nil {
 		return nil, err
 	}
