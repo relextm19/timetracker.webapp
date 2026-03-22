@@ -1,0 +1,13 @@
+curl -X POST http://localhost:42069/sessions \
+  -H "Authorization: Bearer 2853a4b2-65eb-4c78-a67d-0e08018b4a4d"\
+  -H "Content-Type: application/json"\
+  -d '{
+    "startDate": "2026-03-22",
+    "endDate": "2026-03-22",
+    "startTime": 1742670000,
+    "endTime": 1742673600,
+    "languageName": "Go",
+    "projectName": "tracker.nvim",
+    "fileName": "main.go"
+  }' \
+  -v

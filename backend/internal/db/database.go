@@ -127,7 +127,7 @@ func (s *Store) fetchCategoryAggragatedData(column, token string) ([]AggregatedT
 				%s, 
 				SUM(EndTime - StartTime) as TotalTime 
 			FROM Sessions 
-			WHERE UserToken = ? 
+			WHERE UserID = (SELECT UserID FROM Users WHERE Token = ?) 
 			GROUP BY %s 
 			ORDER BY TotalTime DESC;
 		`, column, column)
@@ -167,7 +167,7 @@ func (s *Store) fetchTimeAggregatedData(token string) ([]AggregatedTime, error) 
 			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-1 month')), 0),
 			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-1 year')), 0)
 		FROM Sessions 
-		WHERE UserToken = ?;
+		WHERE UserID = (SELECT UserID FROM Users WHERE Token = ?);
 	`
 
 	var day, week, month, year int
