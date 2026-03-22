@@ -35,14 +35,14 @@ func NewStore(db *sql.DB) *Store {
 }
 
 // InsertSession no point in making a new uuid from the header token so just pas it as string
-func (s *Store) InsertSession(ses *sessions.Session, token string) error {
+func (s *Store) InsertSession(ses *sessions.Session, keyHash string) error {
 	query := `
-		INSERT INTO Sessions (UserToken, FileName, ProjectName, LanguageName, StartTime, StartDate, EndTime, EndDate)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO Sessions (UserID, FileName, ProjectName, LanguageName, StartTime, StartDate, EndTime, EndDate)
+		SELECT (SELECT UserID FROM APIKeys WHERE KeyHash = ?), ?, ?, ?, ?, ?, ?, ?
 	`
 
 	_, err := s.DB.Exec(query,
-		token,
+		keyHash,
 		ses.FileName,
 		ses.ProjectName,
 		ses.LanguageName,

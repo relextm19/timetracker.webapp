@@ -9,10 +9,39 @@ import (
 	"github.com/relextm19/tracker.nvim/internal/helpers"
 )
 
+type path struct {
+	target  string
+	methods []string
+}
+
 var (
-	publicPaths    = []string{"/login", "/register"}
-	keyAuthedPaths = []string{"/sessions"}
+	publicPaths = []path{
+		{
+			target:  "/login",
+			methods: []string{http.MethodGet, http.MethodPost},
+		},
+		{
+			target:  "/register",
+			methods: []string{http.MethodGet, http.MethodPost},
+		},
+	}
+
+	keyAuthedPaths = []path{
+		{
+			target:  "/sessions",
+			methods: []string{http.MethodPost},
+		},
+	}
 )
+
+func isMatch(routes []path, r *http.Request) bool {
+	for _, route := range routes {
+		if route.target == r.URL.Path && slices.Contains(route.methods, r.Method) {
+			return true
+		}
+	}
+	return false
+}
 
 // GetAuthTokenFromRequest since we have both browser and other clients making request we have to check for both cookies and headers
 func GetAuthTokenFromRequest(r *http.Request) string {
@@ -47,7 +76,7 @@ const (
 
 func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if slices.Contains(publicPaths, r.URL.Path) {
+		if isMatch(publicPaths, r) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -66,7 +95,7 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 		var ctxKey any
 		var ctxValue string
 
-		if slices.Contains(keyAuthedPaths, r.URL.Path) {
+		if isMatch(keyAuthedPaths, r) {
 			apiKey := GetAPIKeyFromRequest(r)
 			if apiKey == "" {
 				failAuth("missing api key")

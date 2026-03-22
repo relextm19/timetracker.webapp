@@ -33,6 +33,15 @@ func getTokenFromContext(r *http.Request) string {
 	return token
 }
 
+// if the function fails it means that the server is setup Incorrectly in some way and shouldnt continue so panic
+func getAPIKeyFromContext(r *http.Request) string {
+	key, ok := r.Context().Value(ctxKeyAPIKey).(string)
+	if !ok {
+		panic("failed to get api key from context - auth middleware may not be set up correctly")
+	}
+	return key
+}
+
 func (a *App) RespondWithError(w http.ResponseWriter, code int, msg string) {
 	http.Error(w, msg, code)
 }
@@ -85,9 +94,9 @@ func (a *App) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := getTokenFromContext(r)
+	apiKey := getAPIKeyFromContext(r)
 
-	if err = a.Store.InsertSession(session, token); err != nil {
+	if err = a.Store.InsertSession(session, apiKey); err != nil {
 		a.Logger.Error("failed to insert session", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
