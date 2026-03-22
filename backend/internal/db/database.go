@@ -107,6 +107,19 @@ func (s *Store) CheckTokenValid(token string) (bool, error) {
 	return valid, nil
 }
 
+func (s *Store) CheckKeyHashValid(keyHash string) (bool, error) {
+	var valid bool
+
+	query := `SELECT EXISTS(SELECT 1 FROM APIKeys WHERE KeyHash = ?)`
+
+	err := s.DB.QueryRow(query, keyHash).Scan(&valid)
+	if err != nil {
+		return false, err
+	}
+
+	return valid, nil
+}
+
 func (s *Store) fetchCategoryAggragatedData(column, token string) ([]AggregatedTime, error) {
 	// the Sprintf call for db is fine cuz we only have 3 options so the db can still cache the query and shi
 	query := fmt.Sprintf(`
