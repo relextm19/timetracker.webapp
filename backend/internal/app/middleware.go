@@ -24,6 +24,10 @@ var (
 			target:  "/register",
 			methods: []string{http.MethodGet, http.MethodPost},
 		},
+		{
+			target:  "/checkAuth",
+			methods: []string{http.MethodGet, http.MethodPost},
+		},
 	}
 
 	keyAuthedPaths = []path{
