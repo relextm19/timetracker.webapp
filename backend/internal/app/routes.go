@@ -26,21 +26,12 @@ const (
 var ErrSessionInvalid = fmt.Errorf("invalid session")
 
 // if the function fails it means that the server is setup Incorrectly in some way and shouldnt continue so panic
-func getTokenFromContext(r *http.Request) string {
-	token, ok := r.Context().Value(ctxKeyToken).(string)
+func getUserIDFromCtx(r *http.Request) string {
+	token, ok := r.Context().Value(ctxUserID).(string)
 	if !ok {
 		panic("failed to get token from context - auth middleware may not be set up correctly")
 	}
 	return token
-}
-
-// if the function fails it means that the server is setup Incorrectly in some way and shouldnt continue so panic
-func getAPIKeyFromContext(r *http.Request) string {
-	key, ok := r.Context().Value(ctxKeyAPIKey).(string)
-	if !ok {
-		panic("failed to get api key from context - auth middleware may not be set up correctly")
-	}
-	return key
 }
 
 func (a *App) RespondWithError(w http.ResponseWriter, code int, msg string) {
@@ -95,9 +86,9 @@ func (a *App) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiKey := getAPIKeyFromContext(r)
+	userID := getUserIDFromCtx(r)
 
-	if err = a.Store.InsertSession(session, apiKey); err != nil {
+	if err = a.Store.InsertSession(session, userID); err != nil {
 		a.Logger.Error("failed to insert session", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
@@ -107,9 +98,9 @@ func (a *App) CreateSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) GetUserData(w http.ResponseWriter, r *http.Request) {
-	token := getTokenFromContext(r)
+	userID := getUserIDFromCtx(r)
 
-	data, err := a.Store.GetSessionDataForToken(token)
+	data, err := a.Store.GetSessionDataForToken(userID)
 	if err != nil {
 		a.Logger.Error("failed to get data for token", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
@@ -253,9 +244,9 @@ func (a *App) AddAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := getTokenFromContext(r)
+	userID := getUserIDFromCtx(r)
 
-	id, createdAt, err := a.Store.InsertAPIKey(token, ak)
+	id, createdAt, err := a.Store.InsertAPIKey(userID, ak)
 	if err != nil {
 		if errors.Is(err, database.ErrNoRowsAffected) {
 			a.Logger.Warn("failed insert api key", "error", err)
@@ -281,8 +272,8 @@ func (a *App) DeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := getTokenFromContext(r)
-	err := a.Store.DeleteAPIKey(keyID, token)
+	userID := getUserIDFromCtx(r)
+	err := a.Store.DeleteAPIKey(keyID, userID)
 	if err != nil {
 		if errors.Is(err, database.ErrNoRowsAffected) {
 			a.Logger.Warn("failed to delete api key", "error", err)
@@ -298,8 +289,8 @@ func (a *App) DeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) GetAPIKeys(w http.ResponseWriter, r *http.Request) {
-	token := getTokenFromContext(r)
-	keys, err := a.Store.GetAPIKeys(token)
+	userID := getUserIDFromCtx(r)
+	keys, err := a.Store.GetAPIKeys(userID)
 	if err != nil {
 		a.Logger.Error("failed to fetch api keys", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)

@@ -35,14 +35,14 @@ func NewStore(db *sql.DB) *Store {
 }
 
 // InsertSession no point in making a new uuid from the header token so just pas it as string
-func (s *Store) InsertSession(ses *sessions.Session, keyHash string) error {
+func (s *Store) InsertSession(ses *sessions.Session, userID string) error {
 	query := `
 		INSERT INTO Sessions (UserID, FileName, ProjectName, LanguageName, StartTime, StartDate, EndTime, EndDate)
-		SELECT (SELECT UserID FROM APIKeys WHERE KeyHash = ?), ?, ?, ?, ?, ?, ?, ?
+		SELECT ?, ?, ?, ?, ?, ?, ?, ?
 	`
 
 	_, err := s.DB.Exec(query,
-		keyHash,
+		userID,
 		ses.FileName,
 		ses.ProjectName,
 		ses.LanguageName,
@@ -94,45 +94,45 @@ func (s *Store) GetUserToken(email string) (uuid.UUID, error) {
 	return token, nil
 }
 
-func (s *Store) CheckTokenValid(token string) (bool, error) {
-	var valid bool
+func (s *Store) GetUserIDForToken(token string) (string, error) {
+	var userID string
 
-	query := `SELECT EXISTS(SELECT 1 FROM Users WHERE Token = ?)`
+	query := `SELECT ID FROM Users WHERE Token = ?`
 
-	err := s.DB.QueryRow(query, token).Scan(&valid)
+	err := s.DB.QueryRow(query, token).Scan(&userID)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	return valid, nil
+	return userID, nil
 }
 
-func (s *Store) CheckKeyHashValid(keyHash string) (bool, error) {
-	var valid bool
+func (s *Store) GetUserIDForKeyHash(keyHash string) (string, error) {
+	var userID string
 
-	query := `SELECT EXISTS(SELECT 1 FROM APIKeys WHERE KeyHash = ?)`
+	query := `SELECT UserID FROM APIKeys WHERE KeyHash = ?`
 
-	err := s.DB.QueryRow(query, keyHash).Scan(&valid)
+	err := s.DB.QueryRow(query, keyHash).Scan(&userID)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	return valid, nil
+	return userID, nil
 }
 
-func (s *Store) fetchCategoryAggragatedData(column, token string) ([]AggregatedTime, error) {
+func (s *Store) fetchCategoryAggragatedData(column, userID string) ([]AggregatedTime, error) {
 	// the Sprintf call for db is fine cuz we only have 3 options so the db can still cache the query and shi
 	query := fmt.Sprintf(`
 			SELECT 
 				%s, 
 				SUM(EndTime - StartTime) as TotalTime 
 			FROM Sessions 
-			WHERE UserID = (SELECT UserID FROM Users WHERE Token = ?) 
+			WHERE UserID = ?
 			GROUP BY %s 
 			ORDER BY TotalTime DESC;
 		`, column, column)
 
-	rows, err := s.DB.Query(query, token)
+	rows, err := s.DB.Query(query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ type TimePeriod struct {
 	Modifier string
 }
 
-func (s *Store) fetchTimeAggregatedData(token string) ([]AggregatedTime, error) {
+func (s *Store) fetchTimeAggregatedData(userID string) ([]AggregatedTime, error) {
 	query := `
 		SELECT 
 			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', 'start of day')), 0),
@@ -167,12 +167,12 @@ func (s *Store) fetchTimeAggregatedData(token string) ([]AggregatedTime, error) 
 			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-1 month')), 0),
 			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-1 year')), 0)
 		FROM Sessions 
-		WHERE UserID = (SELECT UserID FROM Users WHERE Token = ?);
+		WHERE UserID = ?;
 	`
 
 	var day, week, month, year int
 
-	err := s.DB.QueryRow(query, token).Scan(&day, &week, &month, &year)
+	err := s.DB.QueryRow(query, userID).Scan(&day, &week, &month, &year)
 	if err != nil {
 		return nil, err
 	}
@@ -189,27 +189,27 @@ func (s *Store) fetchTimeAggregatedData(token string) ([]AggregatedTime, error) 
 
 var ErrAggregatingData = errors.New("error aggregating data")
 
-func (s *Store) GetSessionDataForToken(token string) (*DashboardData, error) {
+func (s *Store) GetSessionDataForToken(userID string) (*DashboardData, error) {
 	data := &DashboardData{}
 
 	var err error
 
-	data.ByLanguage, err = s.fetchCategoryAggragatedData("LanguageName", token)
+	data.ByLanguage, err = s.fetchCategoryAggragatedData("LanguageName", userID)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByProject, err = s.fetchCategoryAggragatedData("ProjectName", token)
+	data.ByProject, err = s.fetchCategoryAggragatedData("ProjectName", userID)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByFile, err = s.fetchCategoryAggragatedData("FileName", token)
+	data.ByFile, err = s.fetchCategoryAggragatedData("FileName", userID)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByTime, err = s.fetchTimeAggregatedData(token)
+	data.ByTime, err = s.fetchTimeAggregatedData(userID)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
@@ -218,14 +218,14 @@ func (s *Store) GetSessionDataForToken(token string) (*DashboardData, error) {
 
 var ErrNoRowsAffected = errors.New("no rows affected")
 
-func (s *Store) InsertAPIKey(token string, ak *apikeys.APIKey) (int, int, error) {
+func (s *Store) InsertAPIKey(userID string, ak *apikeys.APIKey) (int, int, error) {
 	// FIXME: The db unique doesnt prevent multiple of the same api key cuz of the salt or sth of a hash
 	query := `
         INSERT INTO ApiKeys (UserID, Name, KeyHash)
-        SELECT ID, ?, ? FROM Users WHERE Token = ?
+        VALUES(?,?,?)
     `
 
-	res, err := s.DB.Exec(query, ak.Name, ak.KeyHash, token)
+	res, err := s.DB.Exec(query, ak.Name, ak.KeyHash, userID)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -252,10 +252,10 @@ func (s *Store) InsertAPIKey(token string, ak *apikeys.APIKey) (int, int, error)
 	return int(newID), createdAt, nil
 }
 
-func (s *Store) DeleteAPIKey(id, token string) error {
-	query := `DELETE FROM ApiKeys WHERE ID = ? AND UserID = (SELECT ID FROM Users WHERE Token = ?)`
+func (s *Store) DeleteAPIKey(id, userID string) error {
+	query := `DELETE FROM ApiKeys WHERE ID = ? AND UserID = ?`
 
-	res, err := s.DB.Exec(query, id, token)
+	res, err := s.DB.Exec(query, id, userID)
 	if err != nil {
 		return err
 	}
@@ -268,11 +268,11 @@ func (s *Store) DeleteAPIKey(id, token string) error {
 	return nil
 }
 
-func (s *Store) GetAPIKeys(token string) ([]apikeys.APIKey, error) {
-	query := `SELECT ID, Name, CreatedAt, KeyHash FROM ApiKeys WHERE UserID = (SELECT ID FROM Users WHERE token = ?)`
+func (s *Store) GetAPIKeys(userID string) ([]apikeys.APIKey, error) {
+	query := `SELECT ID, Name, CreatedAt, KeyHash FROM ApiKeys WHERE UserID = ?`
 	res := []apikeys.APIKey{}
 
-	rows, err := s.DB.Query(query, token)
+	rows, err := s.DB.Query(query, userID)
 	if err != nil {
 		return nil, err
 	}

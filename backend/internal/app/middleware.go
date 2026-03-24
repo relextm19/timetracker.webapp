@@ -35,6 +35,7 @@ var routes = map[string]map[string]RouteConfig{
 
 // GetAuthTokenFromRequest since we have both browser and other clients making request we have to check for both cookies and headers
 func GetAuthTokenFromRequest(r *http.Request) string {
+	// TODO: i think we dont need to check for body anymore cuz only the browser auths by token
 	h := r.Header
 	if after, ok := strings.CutPrefix(h.Get("Authorization"), "Bearer"); ok {
 		return strings.TrimSpace(after)
@@ -60,8 +61,7 @@ func GetAPIKeyFromRequest(r *http.Request) string {
 type ctxKey string
 
 const (
-	ctxKeyToken  ctxKey = "authToken"
-	ctxKeyAPIKey ctxKey = "APIKey"
+	ctxUserID ctxKey = "userID"
 )
 
 func (a *App) AuthMiddleware(next http.Handler) http.Handler {
@@ -89,23 +89,23 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 
 		isValid := false
 		var dbErr error
-		var ctxKey any
-		var ctxValue string
+		var userID string
+
 		if routeConfig.AllowKey {
 			apiKey := GetAPIKeyFromRequest(r)
 			if apiKey != "" {
 				hash, err := helpers.GetHashFromUUID([]byte(apiKey))
 				if err == nil {
-					isValid, dbErr = a.Store.CheckKeyHashValid(hash)
-					ctxKey, ctxValue = ctxKeyAPIKey, hash
+					userID, dbErr = a.Store.GetUserIDForKeyHash(hash)
+					isValid = userID != ""
 				}
 			}
 		}
 		if !isValid && routeConfig.AllowToken {
 			token := GetAuthTokenFromRequest(r)
 			if token != "" {
-				isValid, dbErr = a.Store.CheckTokenValid(token)
-				ctxKey, ctxValue = ctxKeyToken, token
+				userID, dbErr = a.Store.GetUserIDForToken(token)
+				isValid = userID != ""
 			}
 		}
 
@@ -119,7 +119,7 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), ctxKey, ctxValue)
+		ctx := context.WithValue(r.Context(), ctxUserID, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
