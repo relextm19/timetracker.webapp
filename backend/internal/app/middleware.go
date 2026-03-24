@@ -24,8 +24,7 @@ var routes = map[string]map[string]RouteConfig{
 		http.MethodPost: {IsPublic: true},
 	},
 	"/checkAuth": {
-		http.MethodGet:  {IsPublic: true},
-		http.MethodPost: {IsPublic: true},
+		http.MethodGet: {AllowToken: true},
 	},
 	"/sessions": {
 		http.MethodPost: {AllowKey: true},
