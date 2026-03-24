@@ -16,6 +16,7 @@ import (
 
 const (
 	RespMethodNotAllowed = "Method not allowed"
+	RespNotFound         = "Path not found"
 	RespBadRequest       = "Bad request"
 	RespInvalidJSON      = "Invalid JSON"
 	RespInternalError    = "Internal server error"

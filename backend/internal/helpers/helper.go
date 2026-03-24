@@ -14,7 +14,7 @@ var ErrEmptyField = errors.New("empty field")
 func ValidStringField(s string) bool { return strings.TrimSpace(s) != "" }
 
 func GetHashFromPassword(b []byte) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword(b, 14)
+	bytes, err := bcrypt.GenerateFromPassword(b, 10)
 	return string(bytes), err
 }
 

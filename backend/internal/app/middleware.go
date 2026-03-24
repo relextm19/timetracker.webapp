@@ -3,48 +3,34 @@ package app
 import (
 	"context"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/relextm19/tracker.nvim/internal/helpers"
 )
 
-type path struct {
-	target  string
-	methods []string
+type RouteConfig struct {
+	IsPublic   bool
+	AllowKey   bool
+	AllowToken bool
 }
 
-var (
-	publicPaths = []path{
-		{
-			target:  "/login",
-			methods: []string{http.MethodGet, http.MethodPost},
-		},
-		{
-			target:  "/register",
-			methods: []string{http.MethodGet, http.MethodPost},
-		},
-		{
-			target:  "/checkAuth",
-			methods: []string{http.MethodGet, http.MethodPost},
-		},
-	}
-
-	keyAuthedPaths = []path{
-		{
-			target:  "/sessions",
-			methods: []string{http.MethodPost},
-		},
-	}
-)
-
-func isMatch(routes []path, r *http.Request) bool {
-	for _, route := range routes {
-		if route.target == r.URL.Path && slices.Contains(route.methods, r.Method) {
-			return true
-		}
-	}
-	return false
+var routes = map[string]map[string]RouteConfig{
+	"/login": {
+		http.MethodGet:  {IsPublic: true},
+		http.MethodPost: {IsPublic: true},
+	},
+	"/register": {
+		http.MethodGet:  {IsPublic: true},
+		http.MethodPost: {IsPublic: true},
+	},
+	"/checkAuth": {
+		http.MethodGet:  {IsPublic: true},
+		http.MethodPost: {IsPublic: true},
+	},
+	"/sessions": {
+		http.MethodPost: {AllowKey: true},
+		http.MethodGet:  {AllowKey: true, AllowToken: true}, // Both allowed so the nvim display can work
+	},
 }
 
 // GetAuthTokenFromRequest since we have both browser and other clients making request we have to check for both cookies and headers
@@ -80,10 +66,17 @@ const (
 
 func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isMatch(publicPaths, r) {
+		routeConfig, ok := routes[r.URL.Path][r.Method]
+		if !ok {
+			a.Logger.Warn("Accesing non existent path")
+			a.RespondWithError(w, http.StatusNotFound, RespNotFound)
+			return
+		}
+		if routeConfig.IsPublic {
 			next.ServeHTTP(w, r)
 			return
 		}
+
 		failAuth := func(reason string) {
 			a.Logger.Warn("authentication failed: "+reason, "path", r.URL.Path, "ip", r.RemoteAddr)
 			a.RespondWithError(w, http.StatusUnauthorized, RespUnauthorized)
@@ -94,34 +87,26 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 			a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
 		}
 
-		var isValid bool
+		isValid := false
 		var dbErr error
 		var ctxKey any
 		var ctxValue string
-
-		if isMatch(keyAuthedPaths, r) {
+		if routeConfig.AllowKey {
 			apiKey := GetAPIKeyFromRequest(r)
-			if apiKey == "" {
-				failAuth("missing api key")
-				return
+			if apiKey != "" {
+				hash, err := helpers.GetHashFromUUID([]byte(apiKey))
+				if err == nil {
+					isValid, dbErr = a.Store.CheckKeyHashValid(hash)
+					ctxKey, ctxValue = ctxKeyAPIKey, hash
+				}
 			}
-			hash, err := helpers.GetHashFromUUID([]byte(apiKey))
-			if err != nil {
-				failInternal("error getting key hash", err)
-				return
-			}
-
-			isValid, dbErr = a.Store.CheckKeyHashValid(hash)
-			ctxKey, ctxValue = ctxKeyAPIKey, hash
-		} else {
+		}
+		if !isValid && routeConfig.AllowToken {
 			token := GetAuthTokenFromRequest(r)
-			if token == "" {
-				failAuth("missing token")
-				return
+			if token != "" {
+				isValid, dbErr = a.Store.CheckTokenValid(token)
+				ctxKey, ctxValue = ctxKeyToken, token
 			}
-
-			isValid, dbErr = a.Store.CheckTokenValid(token)
-			ctxKey, ctxValue = ctxKeyToken, token
 		}
 
 		if dbErr != nil {
@@ -130,7 +115,7 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		if !isValid {
-			failAuth("invalid credential")
+			failAuth("invalid credentials")
 			return
 		}
 
