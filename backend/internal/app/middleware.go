@@ -105,7 +105,6 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 				failAuth("missing api key")
 				return
 			}
-
 			hash, err := helpers.GetHashFromUUID([]byte(apiKey))
 			if err != nil {
 				failInternal("error getting key hash", err)
