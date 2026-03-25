@@ -1,9 +1,9 @@
 <template>
     <TotalTimeDisplay :totalTime="totalTime" />
-    <DisplaySwitch v-model:showLanguages="showLanguages" />
+    <DisplaySwitch @displayUpdated="handleDisplayUpdate" />
     <div v-if="hasData">
-        <div v-for="entry in currentlyShown" :key="entry.name">
-            <component :is="showLanguages ? LanguageTimeDisplay : ProjectTimeDisplay" v-bind="getProps(entry)" />
+        <div v-for="entry in currentData" :key="entry.name">
+            <component :is="displayComponent" v-bind="getProps(entry)" />
         </div>
     </div>
     <div v-else class="w-full text-center ">
@@ -13,6 +13,27 @@
     </div>
 </template>
 
+<script lang="ts">
+interface timeData {
+    name: string
+    totalTime: number
+}
+
+interface Data {
+    byLanguage: timeData[]
+    byProject: timeData[]
+    byFile: timeData[]
+    byTime: timeData[]
+}
+
+export enum GroupBy {
+    Languages = "languages",
+    Projects = "projects",
+    Files = "files",
+    TimeAggregated = "time aggregated"
+}
+</script>
+
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import TotalTimeDisplay from './components/TotalTimeDisplay.vue'
@@ -20,31 +41,59 @@ import LanguageTimeDisplay from './components/LanguageTimeDisplay.vue'
 import ProjectTimeDisplay from './components/ProjectTimeDisplay.vue'
 import DisplaySwitch from './components/DisplaySwitch.vue'
 
-interface timeData {
-    name: string
-    totalTime: number
-}
 
-const projects = ref<timeData[]>([])
-const languages = ref<timeData[]>([])
 const hasData = ref(true);
+const data = ref<Data>();
+const currentlyShown = ref<GroupBy>(GroupBy.Languages);
 
 onMounted(async () => {
     const response = await fetch('/api/sessions')
     const json = await response.json()
     if (!(json.byLanguage && json.byProject && json.byTime)) {
         hasData.value = false;
-        return
+        return;
     }
-    projects.value = json.byProject
-    languages.value = json.byLanguage
+    data.value = json;
 })
 
-const showLanguages = ref(true)
-const currentlyShown = computed(() => (showLanguages.value ? languages.value : projects.value))
-const totalTime = computed(() => languages.value.reduce((acc, e) => acc + e.totalTime, 0))
+const currentData = computed(() => {
+    console.log(currentlyShown.value)
+    switch (currentlyShown.value) {
+        case GroupBy.Languages:
+            return data.value?.byLanguage;
+        case GroupBy.Projects:
+            return data.value?.byProject;
+        case GroupBy.Files:
+            console.log("halo", data.value?.byFile, data.value)
+            return data.value?.byFile;
+        case GroupBy.TimeAggregated:
+            return data.value?.byTime;
+        default:
+            return [];
+    }
+});
+const displayComponent = computed(() => {
+    switch (currentlyShown.value) {
+        case GroupBy.Languages:
+            return LanguageTimeDisplay;
+        case GroupBy.Projects:
+            return ProjectTimeDisplay;
+        case GroupBy.Files:
+            return ProjectTimeDisplay;
+        case GroupBy.TimeAggregated:
+            return ProjectTimeDisplay;
+        default:
+            return [];
+    }
+});
+const totalTime = computed(() => data.value?.byLanguage?.reduce((acc, e) => acc + e.totalTime, 0) ?? 0)
 
 const getProps = (data: timeData) => {
+    console.log({ name: data.name, time: data.totalTime })
     return { name: data.name, time: data.totalTime }
+}
+
+const handleDisplayUpdate = (val: GroupBy): void => {
+    currentlyShown.value = val;
 }
 </script>

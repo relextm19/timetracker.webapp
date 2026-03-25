@@ -1,6 +1,5 @@
 <template>
     <div class="flex items-center gap-4 p-4 rounded-xl shadow-md mb-4 w-full">
-        <!-- for some reason min-w-16 works but min-w doesnt -->
         <div
             class="min-w-16 aspect-square rounded-full flex items-center justify-center text-2xl font-bold text-white border-2">
             {{ name[0].toUpperCase() }}

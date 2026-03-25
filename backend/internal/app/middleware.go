@@ -30,6 +30,10 @@ var routes = map[string]map[string]RouteConfig{
 		http.MethodPost: {AllowKey: true},
 		http.MethodGet:  {AllowKey: true, AllowToken: true}, // Both allowed so the nvim display can work
 	},
+	"/keys": {
+		http.MethodPost: {AllowToken: true},
+		http.MethodGet:  {AllowToken: true},
+	},
 }
 
 // GetAuthTokenFromRequest since we have both browser and other clients making request we have to check for both cookies and headers
