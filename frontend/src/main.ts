@@ -3,4 +3,6 @@ import App from './App.vue'
 import './styles/tailwind.css'
 import router from './router.ts'
 
-createApp(App).use(router).mount('#app');
+import { setupCalendar } from 'v-calendar'
+
+createApp(App).use(router).use(setupCalendar, {}).mount('#app');

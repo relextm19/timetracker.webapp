@@ -2,7 +2,10 @@
     <TotalTimeDisplay :totalTime="totalTime" />
     <DisplaySwitch @displayUpdated="handleDisplayUpdate" />
     <div v-if="hasData">
-        <div v-for="entry in currentData" :key="entry.name">
+        <div v-if="displayComponent == MyCalendar">
+            <displayComponent />
+        </div>
+        <div v-else v-for="entry in currentData" :key="entry.name">
             <component :is="displayComponent" v-bind="getProps(entry)" />
         </div>
     </div>
@@ -40,11 +43,12 @@ import TotalTimeDisplay from './components/TotalTimeDisplay.vue'
 import LanguageTimeDisplay from './components/LanguageTimeDisplay.vue'
 import ProjectTimeDisplay from './components/ProjectTimeDisplay.vue'
 import DisplaySwitch from './components/DisplaySwitch.vue'
+import MyCalendar from './components/MyCalendar.vue'
 
 
 const hasData = ref(true);
 const data = ref<Data>();
-const currentlyShown = ref<GroupBy>(GroupBy.Languages);
+const currentlyShown = ref<GroupBy>(GroupBy.TimeAggregated);
 
 onMounted(async () => {
     const response = await fetch('/api/sessions')
@@ -81,7 +85,7 @@ const displayComponent = computed(() => {
         case GroupBy.Files:
             return ProjectTimeDisplay;
         case GroupBy.TimeAggregated:
-            return ProjectTimeDisplay;
+            return MyCalendar;
         default:
             return [];
     }
