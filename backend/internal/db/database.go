@@ -159,32 +159,30 @@ type TimePeriod struct {
 	Modifier string
 }
 
-func (s *Store) fetchTimeAggregatedData(userID string) ([]AggregatedTime, error) {
+func (s *Store) fetchTimeAggregatedData(userID string, start string, end string) ([]AggregatedTime, error) {
+	// consider sessions starting on one day and ending at another
 	query := `
-		SELECT 
-			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', 'start of day')), 0),
-			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-7 days')), 0),
-			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-1 month')), 0),
-			COALESCE(SUM(EndTime - StartTime) FILTER (WHERE StartDate >= date('now', '-1 year')), 0)
-		FROM Sessions 
-		WHERE UserID = ?;
-	`
-
-	var day, week, month, year int
-
-	err := s.DB.QueryRow(query, userID).Scan(&day, &week, &month, &year)
+    SELECT 
+        startDate,
+        COALESCE(SUM(EndTime - StartTime), 0)
+    FROM Sessions 
+    WHERE UserID = ? AND startDate >= date(?, ?)
+    GROUP BY startDate;
+`
+	rows, err := s.DB.Query(query, userID, start, end)
 	if err != nil {
 		return nil, err
 	}
 
-	results := []AggregatedTime{
-		{Name: "day", TotalTime: day},
-		{Name: "week", TotalTime: week},
-		{Name: "month", TotalTime: month},
-		{Name: "year", TotalTime: year},
+	var result []AggregatedTime
+	for rows.Next() {
+		var item AggregatedTime
+		if err := rows.Scan(&item.Name, &item.TotalTime); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
 	}
-
-	return results, nil
+	return result, nil
 }
 
 var ErrAggregatingData = errors.New("error aggregating data")
@@ -209,10 +207,11 @@ func (s *Store) GetSessionDataForToken(userID string) (*DashboardData, error) {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByTime, err = s.fetchTimeAggregatedData(userID)
+	data.ByTime, err = s.fetchTimeAggregatedData(userID, "now", "start of month")
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
+
 	return data, nil
 }
 

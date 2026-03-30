@@ -3,7 +3,7 @@
     <DisplaySwitch @displayUpdated="handleDisplayUpdate" />
     <div v-if="hasData">
         <div v-if="displayComponent == MyCalendar">
-            <displayComponent />
+            <MyCalendar :timeData="data!.byTime" />
         </div>
         <div v-else v-for="entry in currentData" :key="entry.name">
             <component :is="displayComponent" v-bind="getProps(entry)" />
@@ -17,7 +17,7 @@
 </template>
 
 <script lang="ts">
-interface timeData {
+export interface timeData {
     name: string
     totalTime: number
 }
@@ -46,22 +46,20 @@ import DisplaySwitch from './components/DisplaySwitch.vue'
 import MyCalendar from './components/MyCalendar.vue'
 
 
-const hasData = ref(true);
+const hasData = ref(false);
 const data = ref<Data>();
 const currentlyShown = ref<GroupBy>(GroupBy.TimeAggregated);
 
 onMounted(async () => {
     const response = await fetch('/api/sessions')
     const json = await response.json()
-    if (!(json.byLanguage && json.byProject && json.byTime)) {
-        hasData.value = false;
-        return;
+    if (json.byLanguage && json.byProject && json.byTime) {
+        hasData.value = true;
+        data.value = json;
     }
-    data.value = json;
 })
 
 const currentData = computed(() => {
-    console.log(currentlyShown.value)
     switch (currentlyShown.value) {
         case GroupBy.Languages:
             return data.value?.byLanguage;
