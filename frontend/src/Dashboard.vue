@@ -33,7 +33,7 @@ export enum GroupBy {
     Languages = "languages",
     Projects = "projects",
     Files = "files",
-    TimeAggregated = "time aggregated"
+    TimeAggregated = "calendar"
 }
 </script>
 
@@ -66,7 +66,6 @@ const currentData = computed(() => {
         case GroupBy.Projects:
             return data.value?.byProject;
         case GroupBy.Files:
-            console.log("halo", data.value?.byFile, data.value)
             return data.value?.byFile;
         case GroupBy.TimeAggregated:
             return data.value?.byTime;
@@ -91,7 +90,6 @@ const displayComponent = computed(() => {
 const totalTime = computed(() => data.value?.byLanguage?.reduce((acc, e) => acc + e.totalTime, 0) ?? 0)
 
 const getProps = (data: timeData) => {
-    console.log({ name: data.name, time: data.totalTime })
     return { name: data.name, time: data.totalTime }
 }
 
