@@ -11,6 +11,9 @@
         <div v-if="displayComponent == MyCalendar">
             <MyCalendar :timeData="data!.byTime" />
         </div>
+        <div v-else-if="displayComponent == AdvancedGraphView">
+            <AdvancedGraphView :byHour="data!.byHour" :byWeekday="data!.byWeekday" :byMonth="data!.byMonth" />
+        </div>
         <div v-else v-for="entry in currentData" :key="entry.name">
             <component :is="displayComponent" v-bind="getProps(entry)" />
         </div>
@@ -33,6 +36,9 @@ interface Data {
     byProject: timeData[]
     byFile: timeData[]
     byTime: timeData[]
+    byHour: timeData[]
+    byWeekday: timeData[]
+    byMonth: timeData[]
 }
 
 type GroupedData = Record<string, Data>
@@ -41,7 +47,8 @@ export enum GroupBy {
     Languages = "languages",
     Projects = "projects",
     Files = "files",
-    TimeAggregated = "calendar"
+    TimeAggregated = "calendar",
+    ActivityPatterns = "activity"
 }
 </script>
 
@@ -52,13 +59,14 @@ import LanguageTimeDisplay from './components/LanguageTimeDisplay.vue'
 import ProjectTimeDisplay from './components/ProjectTimeDisplay.vue'
 import DisplaySwitch from './components/DisplaySwitch.vue'
 import MyCalendar from './components/MyCalendar.vue'
+import AdvancedGraphView from './components/AdvancedGraphView.vue'
 import type { APIKey } from './ApiKeys.vue'
 
 const hasData = ref(false);
 const groupedData = ref<GroupedData>({});
 const selectedKeyHash = ref<APIKey>();
 const APIKeys = ref<APIKey[]>();
-const currentlyShown = ref<GroupBy>(GroupBy.Languages);
+const currentlyShown = ref<GroupBy>(GroupBy.ActivityPatterns);
 
 const fetchSessions = async (): Promise<GroupedData> => {
     const response = await fetch('/api/sessions')
@@ -83,6 +91,7 @@ onMounted(async () => {
     }
 })
 
+//TODO: implement a no selected api key to display all the data
 const data = computed(() => {
     if (!selectedKeyHash.value) return undefined;
     return groupedData.value[selectedKeyHash.value.keyHash];
@@ -98,6 +107,8 @@ const currentData = computed(() => {
             return data.value?.byFile;
         case GroupBy.TimeAggregated:
             return data.value?.byTime;
+        case GroupBy.ActivityPatterns:
+            return [];
         default:
             return [];
     }
@@ -112,6 +123,8 @@ const displayComponent = computed(() => {
             return ProjectTimeDisplay;
         case GroupBy.TimeAggregated:
             return MyCalendar;
+        case GroupBy.ActivityPatterns:
+            return AdvancedGraphView;
         default:
             return [];
     }

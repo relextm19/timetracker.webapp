@@ -26,6 +26,9 @@ type DashboardData struct {
 	ByProject  []AggregatedTime `json:"byProject"`
 	ByFile     []AggregatedTime `json:"byFile"`
 	ByTime     []AggregatedTime `json:"byTime"`
+	ByHour     []AggregatedTime `json:"byHour"`
+	ByWeekday  []AggregatedTime `json:"byWeekday"`
+	ByMonth    []AggregatedTime `json:"byMonth"`
 }
 
 func NewStore(db *sql.DB) *Store {
@@ -203,6 +206,48 @@ func (s *Store) fetchTimeAggregatedData(keyHash string, start string, end string
 	return result, nil
 }
 
+func (s *Store) fetchBucketAggregatedData(keyHash string, format string, labels []string) ([]AggregatedTime, error) {
+	query := `
+		SELECT CAST(strftime(?, datetime(StartTime, 'unixepoch')) AS INTEGER), COALESCE(SUM(EndTime - StartTime), 0)
+		FROM Sessions
+		WHERE KeyHash = ?
+		GROUP BY 1
+		ORDER BY 1;
+	`
+
+	rows, err := s.DB.Query(query, format, keyHash)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]AggregatedTime, len(labels))
+	for i, label := range labels {
+		result[i] = AggregatedTime{Name: label, TotalTime: 0}
+	}
+
+	for rows.Next() {
+		var bucket int
+		var totalTime int
+		if err := rows.Scan(&bucket, &totalTime); err != nil {
+			return nil, err
+		}
+		if format == "%m" {
+			bucket--
+		}
+
+		if bucket >= 0 && bucket < len(result) {
+			result[bucket].TotalTime = totalTime
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 var ErrAggregatingData = errors.New("error aggregating data")
 
 func (s *Store) GetSessionDataForKeyHash(keyHash string) (*DashboardData, error) {
@@ -226,6 +271,27 @@ func (s *Store) GetSessionDataForKeyHash(keyHash string) (*DashboardData, error)
 	}
 
 	data.ByTime, err = s.fetchTimeAggregatedData(keyHash, "now", "start of month")
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	hourLabels := []string{
+		"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11",
+		"12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23",
+	}
+	data.ByHour, err = s.fetchBucketAggregatedData(keyHash, "%H", hourLabels)
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	weekdayLabels := []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+	data.ByWeekday, err = s.fetchBucketAggregatedData(keyHash, "%w", weekdayLabels)
+	if err != nil {
+		return nil, errors.Join(ErrAggregatingData, err)
+	}
+
+	monthLabels := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
+	data.ByMonth, err = s.fetchBucketAggregatedData(keyHash, "%m", monthLabels)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
