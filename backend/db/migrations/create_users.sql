@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS Users(
     ID INTEGER PRIMARY KEY AUTOINCREMENT,
     Email TEXT,
-    PasswordHash TEXT,
-    Token TEXT
+    PasswordHash TEXT
 )

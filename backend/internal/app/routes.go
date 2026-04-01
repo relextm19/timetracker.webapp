@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	apikeys "github.com/relextm19/tracker.nvim/internal/apiKeys"
 	database "github.com/relextm19/tracker.nvim/internal/db"
+	"github.com/relextm19/tracker.nvim/internal/helpers"
 	"github.com/relextm19/tracker.nvim/internal/sessions"
 	"github.com/relextm19/tracker.nvim/internal/users"
 )
@@ -86,9 +87,21 @@ func (a *App) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := getUserIDFromCtx(r)
+	apiKey := GetAPIKeyFromRequest(r)
+	if apiKey == "" {
+		a.Logger.Error("missing api key for session creation")
+		a.RespondWithError(w, http.StatusUnauthorized, RespUnauthorized)
+		return
+	}
 
-	if err = a.Store.InsertSession(session, userID); err != nil {
+	keyHash, err := helpers.GetHashFromUUID([]byte(apiKey))
+	if err != nil {
+		a.Logger.Error("failed to hash api key", "error", err)
+		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
+		return
+	}
+
+	if err = a.Store.InsertSession(session, keyHash); err != nil {
 		a.Logger.Error("failed to insert session", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
@@ -100,7 +113,7 @@ func (a *App) CreateSession(w http.ResponseWriter, r *http.Request) {
 func (a *App) GetUserData(w http.ResponseWriter, r *http.Request) {
 	userID := getUserIDFromCtx(r)
 
-	data, err := a.Store.GetSessionDataForToken(userID)
+	data, err := a.Store.GetSessionDataGroupedByKeyHash(userID)
 	if err != nil {
 		a.Logger.Error("failed to get data for token", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
@@ -153,13 +166,25 @@ func (a *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	setAuthCookie(w, user.Token.String())
+	token := uuid.New().String()
+	userID, err := a.Store.GetUserIDByEmail(user.Email)
+	if err != nil {
+		a.Logger.Error("failed to fetch new user id", "error", err)
+		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
+		return
+	}
+	if err := a.Store.InsertToken(userID, token); err != nil {
+		a.Logger.Error("failed to store user token", "error", err)
+		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
+		return
+	}
+	setAuthCookie(w, token)
 	w.WriteHeader(http.StatusCreated)
 
 	json.NewEncoder(w).Encode(struct {
-		Token uuid.UUID `json:"token"`
+		Token string `json:"token"`
 	}{
-		Token: user.Token,
+		Token: token,
 	})
 }
 
@@ -196,19 +221,25 @@ func (a *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := a.Store.GetUserToken(rub.Email)
+	userID, err := a.Store.GetUserIDByEmail(rub.Email)
 	if err != nil {
-		a.Logger.Error("failed to fetch user token", "error", err)
+		a.Logger.Error("failed to fetch user id", "error", err)
+		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
+		return
+	}
+	token := uuid.New().String()
+	if err := a.Store.InsertToken(userID, token); err != nil {
+		a.Logger.Error("failed to store user token", "error", err)
 		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	setAuthCookie(w, token.String())
+	setAuthCookie(w, token)
 	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(struct {
-		Token uuid.UUID `json:"token"`
+		Token string `json:"token"`
 	}{
 		Token: token,
 	})

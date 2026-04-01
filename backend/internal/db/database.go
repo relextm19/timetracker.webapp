@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	apikeys "github.com/relextm19/tracker.nvim/internal/apiKeys"
+	"github.com/relextm19/tracker.nvim/internal/helpers"
 	sessions "github.com/relextm19/tracker.nvim/internal/sessions"
 	"github.com/relextm19/tracker.nvim/internal/users"
 	"golang.org/x/crypto/bcrypt"
@@ -35,14 +35,14 @@ func NewStore(db *sql.DB) *Store {
 }
 
 // InsertSession no point in making a new uuid from the header token so just pas it as string
-func (s *Store) InsertSession(ses *sessions.Session, userID string) error {
+func (s *Store) InsertSession(ses *sessions.Session, keyHash string) error {
 	query := `
-		INSERT INTO Sessions (UserID, FileName, ProjectName, LanguageName, StartTime, StartDate, EndTime, EndDate)
+		INSERT INTO Sessions (KeyHash, FileName, ProjectName, LanguageName, StartTime, StartDate, EndTime, EndDate)
 		SELECT ?, ?, ?, ?, ?, ?, ?, ?
 	`
 
 	_, err := s.DB.Exec(query,
-		userID,
+		keyHash,
 		ses.FileName,
 		ses.ProjectName,
 		ses.LanguageName,
@@ -57,14 +57,13 @@ func (s *Store) InsertSession(ses *sessions.Session, userID string) error {
 
 func (s *Store) InsertUser(u *users.User) error {
 	query := `
-		INSERT INTO Users (Email, PasswordHash, Token) 
-		VALUES (?, ?, ?)
+		INSERT INTO Users (Email, PasswordHash) 
+		VALUES (?, ?)
 	`
 
 	_, err := s.DB.Exec(query,
 		u.Email,
 		u.PasswordHash,
-		u.Token,
 	)
 
 	return err
@@ -82,24 +81,43 @@ func (s *Store) CheckLoginAttempt(cub *users.RequestUserBody) bool {
 	return err == nil
 }
 
-func (s *Store) GetUserToken(email string) (uuid.UUID, error) {
-	var token uuid.UUID
-
-	query := `SELECT Token FROM Users WHERE Email = ?`
-	err := s.DB.QueryRow(query, email).Scan(&token)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return token, nil
-}
-
 func (s *Store) GetUserIDForToken(token string) (string, error) {
 	var userID string
+	tokenHash, err := helpers.GetHashFromUUID([]byte(token))
+	if err != nil {
+		return "", err
+	}
 
-	query := `SELECT ID FROM Users WHERE Token = ?`
+	query := `SELECT UserID FROM Tokens WHERE TokenHash = ?`
 
-	err := s.DB.QueryRow(query, token).Scan(&userID)
+	err = s.DB.QueryRow(query, tokenHash).Scan(&userID)
+	if err != nil {
+		return "", err
+	}
+
+	return userID, nil
+}
+
+func (s *Store) InsertToken(userID string, token string) error {
+	tokenHash, err := helpers.GetHashFromUUID([]byte(token))
+	if err != nil {
+		return err
+	}
+
+	query := `
+		INSERT INTO Tokens (UserID, TokenHash)
+		VALUES (?, ?)
+	`
+
+	_, err = s.DB.Exec(query, userID, tokenHash)
+	return err
+}
+
+func (s *Store) GetUserIDByEmail(email string) (string, error) {
+	var userID string
+
+	query := `SELECT ID FROM Users WHERE Email = ?`
+	err := s.DB.QueryRow(query, email).Scan(&userID)
 	if err != nil {
 		return "", err
 	}
@@ -120,19 +138,19 @@ func (s *Store) GetUserIDForKeyHash(keyHash string) (string, error) {
 	return userID, nil
 }
 
-func (s *Store) fetchCategoryAggragatedData(column, userID string) ([]AggregatedTime, error) {
+func (s *Store) fetchCategoryAggragatedData(column, keyHash string) ([]AggregatedTime, error) {
 	// the Sprintf call for db is fine cuz we only have 3 options so the db can still cache the query and shi
 	query := fmt.Sprintf(`
 			SELECT 
 				%s, 
 				SUM(EndTime - StartTime) as TotalTime 
 			FROM Sessions 
-			WHERE UserID = ?
+			WHERE KeyHash = ?
 			GROUP BY %s 
 			ORDER BY TotalTime DESC;
 		`, column, column)
 
-	rows, err := s.DB.Query(query, userID)
+	rows, err := s.DB.Query(query, keyHash)
 	if err != nil {
 		return nil, err
 	}
@@ -159,17 +177,17 @@ type TimePeriod struct {
 	Modifier string
 }
 
-func (s *Store) fetchTimeAggregatedData(userID string, start string, end string) ([]AggregatedTime, error) {
+func (s *Store) fetchTimeAggregatedData(keyHash string, start string, end string) ([]AggregatedTime, error) {
 	// consider sessions starting on one day and ending at another
 	query := `
     SELECT 
         startDate,
         COALESCE(SUM(EndTime - StartTime), 0)
     FROM Sessions 
-    WHERE UserID = ? AND startDate >= date(?, ?)
+	    WHERE KeyHash = ? AND startDate >= date(?, ?)
     GROUP BY startDate;
 `
-	rows, err := s.DB.Query(query, userID, start, end)
+	rows, err := s.DB.Query(query, keyHash, start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -187,32 +205,75 @@ func (s *Store) fetchTimeAggregatedData(userID string, start string, end string)
 
 var ErrAggregatingData = errors.New("error aggregating data")
 
-func (s *Store) GetSessionDataForToken(userID string) (*DashboardData, error) {
+func (s *Store) GetSessionDataForKeyHash(keyHash string) (*DashboardData, error) {
 	data := &DashboardData{}
 
 	var err error
 
-	data.ByLanguage, err = s.fetchCategoryAggragatedData("LanguageName", userID)
+	data.ByLanguage, err = s.fetchCategoryAggragatedData("LanguageName", keyHash)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByProject, err = s.fetchCategoryAggragatedData("ProjectName", userID)
+	data.ByProject, err = s.fetchCategoryAggragatedData("ProjectName", keyHash)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByFile, err = s.fetchCategoryAggragatedData("FileName", userID)
+	data.ByFile, err = s.fetchCategoryAggragatedData("FileName", keyHash)
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
-	data.ByTime, err = s.fetchTimeAggregatedData(userID, "now", "start of month")
+	data.ByTime, err = s.fetchTimeAggregatedData(keyHash, "now", "start of month")
 	if err != nil {
 		return nil, errors.Join(ErrAggregatingData, err)
 	}
 
 	return data, nil
+}
+
+func (s *Store) GetKeyHashes(userID string) ([]string, error) {
+	query := `SELECT KeyHash FROM APIKeys WHERE UserID = ?`
+
+	rows, err := s.DB.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []string{}
+	for rows.Next() {
+		var keyHash string
+		if err := rows.Scan(&keyHash); err != nil {
+			return nil, err
+		}
+		result = append(result, keyHash)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (s *Store) GetSessionDataGroupedByKeyHash(userID string) (map[string]DashboardData, error) {
+	keyHashes, err := s.GetKeyHashes(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	res := map[string]DashboardData{}
+	for _, keyHash := range keyHashes {
+		data, err := s.GetSessionDataForKeyHash(keyHash)
+		if err != nil {
+			return nil, err
+		}
+		res[keyHash] = *data
+	}
+
+	return res, nil
 }
 
 var ErrNoRowsAffected = errors.New("no rows affected")
@@ -224,7 +285,7 @@ func (s *Store) InsertAPIKey(userID string, ak *apikeys.APIKey) (int, int, error
         VALUES(?,?,?)
     `
 
-	res, err := s.DB.Exec(query, ak.Name, ak.KeyHash, userID)
+	res, err := s.DB.Exec(query, userID, ak.Name, ak.KeyHash)
 	if err != nil {
 		return 0, 0, err
 	}

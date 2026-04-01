@@ -29,6 +29,8 @@ interface Data {
     byTime: timeData[]
 }
 
+type GroupedData = Record<string, Data>
+
 export enum GroupBy {
     Languages = "languages",
     Projects = "projects",
@@ -47,17 +49,23 @@ import MyCalendar from './components/MyCalendar.vue'
 
 
 const hasData = ref(false);
-const data = ref<Data>();
-const currentlyShown = ref<GroupBy>(GroupBy.TimeAggregated);
+const groupedData = ref<GroupedData>({});
+const selectedKeyHash = ref<string>('');
+const currentlyShown = ref<GroupBy>(GroupBy.Languages);
 
 onMounted(async () => {
     const response = await fetch('/api/sessions')
-    const json = await response.json()
-    if (json.byLanguage && json.byProject && json.byTime) {
+    const json = await response.json() as GroupedData
+    console.log(json)
+    const keyHashes = Object.keys(json);
+    if (keyHashes.length > 0) {
+        groupedData.value = json;
+        selectedKeyHash.value = keyHashes[0];
         hasData.value = true;
-        data.value = json;
     }
 })
+
+const data = computed(() => groupedData.value[selectedKeyHash.value])
 
 const currentData = computed(() => {
     switch (currentlyShown.value) {

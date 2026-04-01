@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/mail"
 
-	"github.com/google/uuid"
 	"github.com/relextm19/tracker.nvim/internal/helpers"
 )
 
@@ -20,7 +19,6 @@ func NewRequestUserBody() *RequestUserBody {
 type User struct {
 	Email        string
 	PasswordHash string
-	Token        uuid.UUID
 }
 
 func NewUser(cub *RequestUserBody) (*User, error) {
@@ -31,7 +29,6 @@ func NewUser(cub *RequestUserBody) (*User, error) {
 	return &User{
 		Email:        cub.Email,
 		PasswordHash: ph,
-		Token:        uuid.New(),
 	}, nil
 }
 
