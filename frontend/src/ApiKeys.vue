@@ -50,7 +50,7 @@ import Modal from './components/Modal.vue';
 import CopyToClipboardBtn from './components/CopyToClipboardBtn.vue';
 import ApiKeyDisplay from './components/ApiKeyDisplay.vue';
 
-export type APIKey = {
+export interface APIKey {
     id: number
     name: string
     createdAt: number
@@ -66,7 +66,6 @@ const APIKeys = ref<APIKey[]>([]);
 onMounted(async () => {
     const res = await fetch('/api/keys');
     const json = await res.json() as APIKey[];
-    console.log(json)
     APIKeys.value.push(...json)
 })
 
@@ -101,7 +100,13 @@ const addKey = async () => {
     }
 }
 
-const removeKey = (id: number) => {
+const removeKey = async (id: number) => {
+    const response = await fetch('/api/keys/' + id, {
+        method: "DELETE"
+    });
+    if (!response.ok) {
+        console.log("ups")
+    }
     APIKeys.value = APIKeys.value.filter(k => k.id !== id);
 }
 

@@ -1,6 +1,12 @@
 <template>
     <TotalTimeDisplay :totalTime="totalTime" />
-    <DisplaySwitch @displayUpdated="handleDisplayUpdate" />
+    <div class="flex justify-evenly items-center">
+        <!-- FIXME: looks kinda shitty-->
+        <DisplaySwitch @displayUpdated="handleDisplayUpdate" :options="Object.values(GroupBy)"
+            :selected="GroupBy.Languages" />
+        <DisplaySwitch v-if="hasData" @displayUpdated="handleAPIKeyFilterChange" :options="APIKeys!.map(k => k.name)"
+            :selected="APIKeys![0].name" class="ml-auto" />
+    </div>
     <div v-if="hasData">
         <div v-if="displayComponent == MyCalendar">
             <MyCalendar :timeData="data!.byTime" />
@@ -46,26 +52,41 @@ import LanguageTimeDisplay from './components/LanguageTimeDisplay.vue'
 import ProjectTimeDisplay from './components/ProjectTimeDisplay.vue'
 import DisplaySwitch from './components/DisplaySwitch.vue'
 import MyCalendar from './components/MyCalendar.vue'
-
+import type { APIKey } from './ApiKeys.vue'
 
 const hasData = ref(false);
 const groupedData = ref<GroupedData>({});
-const selectedKeyHash = ref<string>('');
+const selectedKeyHash = ref<APIKey>();
+const APIKeys = ref<APIKey[]>();
 const currentlyShown = ref<GroupBy>(GroupBy.Languages);
 
-onMounted(async () => {
+const fetchSessions = async (): Promise<GroupedData> => {
     const response = await fetch('/api/sessions')
     const json = await response.json() as GroupedData
-    console.log(json)
-    const keyHashes = Object.keys(json);
-    if (keyHashes.length > 0) {
-        groupedData.value = json;
-        selectedKeyHash.value = keyHashes[0];
+    return json
+}
+
+const fetchAPIKeys = async (): Promise<APIKey[]> => {
+    const res = await fetch('/api/keys');
+    const json = await res.json() as APIKey[];
+    return json
+}
+
+onMounted(async () => {
+    const sessions = await fetchSessions();
+    const keys = await fetchAPIKeys();
+    if (keys.length > 0 && Object.values(sessions).length > 0) {
+        groupedData.value = sessions;
+        APIKeys.value = keys;
+        selectedKeyHash.value = keys[0];
         hasData.value = true;
     }
 })
 
-const data = computed(() => groupedData.value[selectedKeyHash.value])
+const data = computed(() => {
+    if (!selectedKeyHash.value) return undefined;
+    return groupedData.value[selectedKeyHash.value.keyHash];
+})
 
 const currentData = computed(() => {
     switch (currentlyShown.value) {
@@ -103,5 +124,10 @@ const getProps = (data: timeData) => {
 
 const handleDisplayUpdate = (val: GroupBy): void => {
     currentlyShown.value = val;
+}
+
+// TODO: change the val to APIKEY but in order to do ts i need to introduce a generic in the display switch
+const handleAPIKeyFilterChange = (val: string): void => {
+    selectedKeyHash.value = APIKeys.value!.filter(k => k.name === val)[0];
 }
 </script>

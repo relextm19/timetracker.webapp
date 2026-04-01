@@ -14,7 +14,7 @@
                 <span class="ml-2">{{ formatToDate(APIKey.createdAt) }}</span>
             </div>
         </div>
-        <button @click="() => deleteKey(APIKey.id)"
+        <button @click="() => emit('deleted', APIKey.id)"
             class="text-gray-400 transition-colors rounded-md hover:text-red-500 hover:bg-red-50"
             aria-label="Delete API Key">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
@@ -35,13 +35,4 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ (e: 'deleted', id: number): void }>()
-
-const deleteKey = async (id: number): Promise<void> => {
-    const response = await fetch('/api/keys/' + id, {
-        method: "DELETE"
-    });
-    if (response.ok) {
-        emit('deleted', id)
-    }
-}
 </script>

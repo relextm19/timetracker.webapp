@@ -31,8 +31,9 @@ var routes = map[string]map[string]RouteConfig{
 		http.MethodGet:  {AllowKey: true, AllowToken: true}, // Both allowed so the nvim display can work
 	},
 	"/keys": {
-		http.MethodPost: {AllowToken: true},
-		http.MethodGet:  {AllowToken: true},
+		http.MethodPost:   {AllowToken: true},
+		http.MethodGet:    {AllowToken: true},
+		http.MethodDelete: {AllowToken: true},
 	},
 }
 
@@ -70,8 +71,16 @@ const (
 func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		routeConfig, ok := routes[r.URL.Path][r.Method]
+		// FIXME: this is def not the best approach here
 		if !ok {
-			a.Logger.Warn("Accesing non existent path")
+			lastSlashIdx := strings.LastIndex(r.URL.Path, "/")
+			if lastSlashIdx > 0 {
+				newURL := r.URL.Path[:lastSlashIdx]
+				routeConfig, ok = routes[newURL][r.Method]
+			}
+		}
+		if !ok {
+			a.Logger.Warn("Accesing non existent path: ", r.URL.Path, r.Method)
 			a.RespondWithError(w, http.StatusNotFound, RespNotFound)
 			return
 		}
@@ -94,6 +103,7 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 		var dbErr error
 		var userID string
 
+		// TODO: maybe can make it so the key hash is stored instead of retrieving it later but its a pain with current setup
 		if routeConfig.AllowKey {
 			apiKey := GetAPIKeyFromRequest(r)
 			if apiKey != "" {
