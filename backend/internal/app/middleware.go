@@ -26,6 +26,9 @@ var routes = map[string]map[string]RouteConfig{
 	"/checkAuth": {
 		http.MethodGet: {AllowToken: true},
 	},
+	"/logout": {
+		http.MethodPost: {AllowToken: true},
+	},
 	"/sessions": {
 		http.MethodPost: {AllowKey: true},
 		http.MethodGet:  {AllowKey: true, AllowToken: true}, // Both allowed so the nvim display can work

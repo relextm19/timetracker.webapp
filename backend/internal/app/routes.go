@@ -52,6 +52,20 @@ func setAuthCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &cookie)
 }
 
+func clearAuthCookie(w http.ResponseWriter) {
+	cookie := http.Cookie{
+		Name:     "token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	}
+
+	http.SetCookie(w, &cookie)
+}
+
 func (a *App) SessionHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
@@ -243,6 +257,28 @@ func (a *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}{
 		Token: token,
 	})
+}
+
+func (a *App) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		a.RespondWithError(w, http.StatusMethodNotAllowed, RespMethodNotAllowed)
+		return
+	}
+
+	token := GetAuthTokenFromRequest(r)
+	if token == "" {
+		a.RespondWithError(w, http.StatusUnauthorized, RespUnauthorized)
+		return
+	}
+
+	if err := a.Store.DeleteToken(token); err != nil {
+		a.Logger.Error("failed to delete user token", "error", err)
+		a.RespondWithError(w, http.StatusInternalServerError, RespInternalError)
+		return
+	}
+
+	clearAuthCookie(w)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *App) AddAPIKey(w http.ResponseWriter, r *http.Request) {

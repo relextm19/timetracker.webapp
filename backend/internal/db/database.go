@@ -116,6 +116,17 @@ func (s *Store) InsertToken(userID string, token string) error {
 	return err
 }
 
+func (s *Store) DeleteToken(token string) error {
+	tokenHash, err := helpers.GetHashFromUUID([]byte(token))
+	if err != nil {
+		return err
+	}
+
+	query := `DELETE FROM Tokens WHERE TokenHash = ?`
+	_, err = s.DB.Exec(query, tokenHash)
+	return err
+}
+
 func (s *Store) GetUserIDByEmail(email string) (string, error) {
 	var userID string
 

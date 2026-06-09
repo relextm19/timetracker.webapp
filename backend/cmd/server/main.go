@@ -17,6 +17,7 @@ func main() {
 	defer app.Store.DB.Close()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/login", app.LoginHandler)
+	mux.HandleFunc("/logout", app.LogoutHandler)
 	mux.HandleFunc("/register", app.RegisterHandler)
 	mux.HandleFunc("/sessions", app.SessionHandler)
 	mux.HandleFunc("/keys", app.APIKeysHandler)

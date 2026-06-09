@@ -18,6 +18,10 @@ const router = createRouter({
 
 let loggedIn = false;// cache the value so i dont have to hit /api/checkAuth every request. This is not a security issue cause i still have an auth middleware on the backend so if someone plays arround with the client side the app still wont let them acces data
 
+export function setLoggedIn(value: boolean): void {
+    loggedIn = value;
+}
+
 router.beforeEach(async (to, _, next) => {
     if (to.meta.public) {
         if (loggedIn) return next('/');
